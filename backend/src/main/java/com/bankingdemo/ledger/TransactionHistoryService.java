@@ -35,6 +35,13 @@ public class TransactionHistoryService {
     }
 
     @Transactional(readOnly = true)
+    public List<TransactionHistoryResponse> recentForCustomer(Long customerId, int maxRows) {
+        List<TransactionHistoryRow> rows = ledgerEntryRepository.recentForCustomer(
+                customerId, org.springframework.data.domain.PageRequest.of(0, maxRows));
+        return rows.stream().map(this::toResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<TransactionHistoryResponse> forStatement(Long customerId, Long accountId, int maxRows) {
         requireOwnedAccount(customerId, accountId);
         List<TransactionHistoryRow> rows = ledgerEntryRepository.findAllHistoryForStatement(

@@ -52,6 +52,18 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
             """)
     List<TransactionHistoryRow> findAllHistoryForStatement(@Param("accountId") Long accountId, Pageable pageable);
 
+    @Query("""
+            select new com.bankingdemo.ledger.TransactionHistoryRow(
+                e.id, f.id, f.reference, f.type, e.direction, e.amount, e.balanceAfter,
+                f.description, e.categoryId, e.createdAt, f.sourceAccountId, f.destinationAccountId)
+            from LedgerEntry e, FinancialTransaction f, Account own
+            where e.financialTransactionId = f.id
+              and e.accountId = own.id
+              and own.ownerCustomerId = :customerId
+            order by e.createdAt desc, e.id desc
+            """)
+    List<TransactionHistoryRow> recentForCustomer(@Param("customerId") Long customerId, Pageable pageable);
+
     /**
      * Spending is scoped to the CUSTOMER (across all their accounts), not one
      * account, since budgets are per-customer. Self-transfers (both legs
