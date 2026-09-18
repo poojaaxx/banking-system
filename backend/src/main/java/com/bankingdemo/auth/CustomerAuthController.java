@@ -17,7 +17,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.AuthenticationException;
@@ -31,7 +31,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/auth/customer")
-@RequiredArgsConstructor
 public class CustomerAuthController {
 
     private final CustomerService customerService;
@@ -44,6 +43,31 @@ public class CustomerAuthController {
     private final AppProperties appProperties;
     private final PasswordEncoder passwordEncoder;
     private final AlertEvaluationService alertEvaluationService;
+
+    // Explicit constructor (not Lombok's @RequiredArgsConstructor) so the
+    // @Qualifier below is honored regardless of which AuthenticationManager
+    // bean is marked @Primary -- see the matching note in AdminAuthController.
+    public CustomerAuthController(CustomerService customerService,
+                                   CustomerRepository customerRepository,
+                                   RecoveryService recoveryService,
+                                   @Qualifier("customerAuthenticationManager") AuthenticationManager customerAuthenticationManager,
+                                   SessionAuthenticator sessionAuthenticator,
+                                   RateLimiter rateLimiter,
+                                   ClientIpResolver clientIpResolver,
+                                   AppProperties appProperties,
+                                   PasswordEncoder passwordEncoder,
+                                   AlertEvaluationService alertEvaluationService) {
+        this.customerService = customerService;
+        this.customerRepository = customerRepository;
+        this.recoveryService = recoveryService;
+        this.customerAuthenticationManager = customerAuthenticationManager;
+        this.sessionAuthenticator = sessionAuthenticator;
+        this.rateLimiter = rateLimiter;
+        this.clientIpResolver = clientIpResolver;
+        this.appProperties = appProperties;
+        this.passwordEncoder = passwordEncoder;
+        this.alertEvaluationService = alertEvaluationService;
+    }
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request,

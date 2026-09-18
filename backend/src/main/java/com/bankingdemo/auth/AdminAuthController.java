@@ -14,7 +14,7 @@ import com.bankingdemo.security.SessionAuthenticator;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -28,7 +28,6 @@ import java.time.Duration;
 
 @RestController
 @RequestMapping("/api/auth/admin")
-@RequiredArgsConstructor
 public class AdminAuthController {
 
     private final AdminRepository adminRepository;
@@ -37,6 +36,26 @@ public class AdminAuthController {
     private final RateLimiter rateLimiter;
     private final ClientIpResolver clientIpResolver;
     private final AppProperties appProperties;
+
+    // Explicit constructor (not Lombok's @RequiredArgsConstructor) so the
+    // @Qualifier below is honored -- customerAuthenticationManager is marked
+    // @Primary (only to satisfy Spring Security's own internal lookup of a
+    // single default AuthenticationManager), and @Primary silently wins over
+    // parameter-name-based autowiring, which is what this @Qualifier guards
+    // against. See CLAUDE.md / SecurityConfig for the full explanation.
+    public AdminAuthController(AdminRepository adminRepository,
+                                @Qualifier("adminAuthenticationManager") AuthenticationManager adminAuthenticationManager,
+                                SessionAuthenticator sessionAuthenticator,
+                                RateLimiter rateLimiter,
+                                ClientIpResolver clientIpResolver,
+                                AppProperties appProperties) {
+        this.adminRepository = adminRepository;
+        this.adminAuthenticationManager = adminAuthenticationManager;
+        this.sessionAuthenticator = sessionAuthenticator;
+        this.rateLimiter = rateLimiter;
+        this.clientIpResolver = clientIpResolver;
+        this.appProperties = appProperties;
+    }
 
     @PostMapping("/login")
     public ResponseEntity<SessionResponse> login(@Valid @RequestBody LoginRequest request,
