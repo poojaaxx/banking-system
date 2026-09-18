@@ -1,0 +1,119 @@
+spring:
+  application:
+    name: banking-backend
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  jackson:
+    time-zone: UTC
+    default-property-inclusion: non_null
+  main:
+    banner-mode: off
+
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+    include-exception: false
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        name: BANKINGDEMOSESSION
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+app:
+  admin-bootstrap:
+    username: ${ADMIN_BOOTSTRAP_USERNAME:}
+    email: ${ADMIN_BOOTSTRAP_EMAIL:}
+    password: ${ADMIN_BOOTSTRAP_PASSWORD:}
+  cookie:
+    secure: ${COOKIE_SECURE:true}
+    same-site: ${COOKIE_SAME_SITE:Lax}
+  demo-limits:
+    max-funding-amount: ${DEMO_MAX_FUNDING_AMOUNT:100000}
+    max-transfer-amount: ${DEMO_MAX_TRANSFER_AMOUNT:100000}
+    daily-transfer-limit: ${DEMO_DAILY_TRANSFER_LIMIT:500000}
+  rate-limit:
+    login-per-minute: ${RATE_LIMIT_LOGIN_PER_MINUTE:10}
+    register-per-hour: ${RATE_LIMIT_REGISTER_PER_HOUR:20}
+    recovery-per-hour: ${RATE_LIMIT_RECOVERY_PER_HOUR:10}
+  trust-proxy-headers: ${TRUST_PROXY_HEADERS:false}
+
+---
+# Local dev without Docker: `mvnw spring-boot:run` against a MySQL you run yourself
+# (e.g. `docker compose up mysql` or a local MySQL Server install).
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: "jdbc:mysql://localhost:3306/banking_demo?serverTimezone=UTC&sslMode=DISABLED&allowPublicKeyRetrieval=true"
+    username: banking_app
+    password: change_me_local_only
+app:
+  cookie:
+    secure: false
+
+---
+# Used inside docker-compose: connects to the `mysql` service by name.
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: "jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=UTC&sslMode=${DB_SSL_MODE:DISABLED}&allowPublicKeyRetrieval=true"
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+app:
+  cookie:
+    secure: ${COOKIE_SECURE:false}
+
+---
+# Hosted deployment (e.g. Render app service + Aiven MySQL). Requires TLS with
+# certificate + hostname verification -- see docs/deployment.md for how the CA
+# certificate is turned into a truststore at deploy time.
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: "jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=UTC&sslMode=VERIFY_IDENTITY&trustCertificateKeyStoreUrl=${DB_SSL_TRUSTSTORE_URL}&trustCertificateKeyStorePassword=${DB_SSL_TRUSTSTORE_PASSWORD}"
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+app:
+  cookie:
+    secure: true
+
+---
+# Used only by backend automated tests. Testcontainers supplies the real
+# datasource URL/credentials dynamically (see TestcontainersConfiguration) --
+# nothing hardcoded here.
+spring:
+  config:
+    activate:
+      on-profile: test
+app:
+  cookie:
+    secure: false
