@@ -13,4 +13,6 @@ public interface AccountAlertRepository extends JpaRepository<AccountAlert, Long
     Page<AccountAlert> findByAcknowledgedAtIsNullOrderByCreatedAtDesc(Pageable pageable);
 
     long countByAccountIdAndCreatedAtAfter(Long accountId, Instant after);
+
+    long countByAcknowledgedAtIsNull();
 }
