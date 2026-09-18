@@ -217,6 +217,113 @@ class LedgerServiceIntegrationTest {
         assertThat(accountRepository.findById(accountAId).orElseThrow().getBalance()).isEqualByComparingTo("9500.00");
     }
 
+    @Test
+    void oppositeDirectionTransfers_bothSucceedWithoutDeadlock() throws InterruptedException {
+        ledgerService.deposit(customerAId, accountAId, new BigDecimal("1000.00"), "Seed A", newKey());
+        ledgerService.deposit(customerBId, accountBId, new BigDecimal("1000.00"), "Seed B", newKey());
+        String accountANumber = accountRepository.findById(accountAId).orElseThrow().getAccountNumber();
+        String accountBNumber = accountRepository.findById(accountBId).orElseThrow().getAccountNumber();
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch go = new CountDownLatch(1);
+
+        var aToB = pool.submit(() -> {
+            ready.countDown();
+            await(go);
+            return ledgerService.transfer(customerAId, accountAId, accountBNumber, new BigDecimal("300.00"), "A to B", null, newKey());
+        });
+        var bToA = pool.submit(() -> {
+            ready.countDown();
+            await(go);
+            return ledgerService.transfer(customerBId, accountBId, accountANumber, new BigDecimal("200.00"), "B to A", null, newKey());
+        });
+        ready.await();
+        go.countDown();
+        pool.shutdown();
+        assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+
+        assertThat(accountRepository.findById(accountAId).orElseThrow().getBalance()).isEqualByComparingTo("900.00");
+        assertThat(accountRepository.findById(accountBId).orElseThrow().getBalance()).isEqualByComparingTo("1100.00");
+    }
+
+    @Test
+    void freezingAccountDuringConcurrentTransfers_neverLeavesBalanceInconsistent() throws InterruptedException {
+        ledgerService.deposit(customerAId, accountAId, new BigDecimal("1000.00"), "Seed", newKey());
+        String destinationAccountNumber = accountRepository.findById(accountBId).orElseThrow().getAccountNumber();
+
+        int transferThreads = 5;
+        ExecutorService pool = Executors.newFixedThreadPool(transferThreads + 1);
+        CountDownLatch ready = new CountDownLatch(transferThreads + 1);
+        CountDownLatch go = new CountDownLatch(1);
+        AtomicInteger succeeded = new AtomicInteger();
+
+        for (int i = 0; i < transferThreads; i++) {
+            pool.submit(() -> {
+                ready.countDown();
+                await(go);
+                try {
+                    ledgerService.transfer(customerAId, accountAId, destinationAccountNumber,
+                            new BigDecimal("100.00"), "Race vs freeze", null, newKey());
+                    succeeded.incrementAndGet();
+                } catch (Exception ignored) {
+                }
+            });
+        }
+        pool.submit(() -> {
+            ready.countDown();
+            await(go);
+            Account account = accountRepository.lockById(accountAId).orElseThrow();
+            account.setStatus(AccountStatus.FROZEN);
+            account.setFrozenReason("Race test freeze");
+            accountRepository.save(account);
+        });
+        ready.await();
+        go.countDown();
+        pool.shutdown();
+        assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+
+        Account finalAccount = accountRepository.findById(accountAId).orElseThrow();
+        BigDecimal expectedBalance = new BigDecimal("1000.00").subtract(new BigDecimal("100.00").multiply(BigDecimal.valueOf(succeeded.get())));
+        assertThat(finalAccount.getBalance()).isEqualByComparingTo(expectedBalance);
+        assertThat(finalAccount.getBalance()).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void failureMidTransaction_rollsBackEverythingAndAllowsRetry() {
+        ledgerService.deposit(customerAId, accountAId, new BigDecimal("1000.00"), "Seed", newKey());
+        String destinationAccountNumber = accountRepository.findById(accountBId).orElseThrow().getAccountNumber();
+        long ledgerRowsBefore = ledgerEntryRepository.count();
+        String key = newKey();
+
+        // An invalid category id violates the FK constraint on ledger_entries only
+        // once the debit row is actually flushed -- i.e. after the balance has
+        // already been decremented in the persistence context -- proving the
+        // whole transaction (balances + both ledger rows + idempotency row) rolls
+        // back together rather than leaving a half-applied debit.
+        assertThatThrownBy(() -> ledgerService.transfer(customerAId, accountAId, destinationAccountNumber,
+                new BigDecimal("100.00"), "Should roll back", 999999L, key))
+                .isInstanceOf(RuntimeException.class);
+
+        assertThat(accountRepository.findById(accountAId).orElseThrow().getBalance()).isEqualByComparingTo("1000.00");
+        assertThat(ledgerEntryRepository.count()).isEqualTo(ledgerRowsBefore);
+
+        // The failed attempt's idempotency row must be retryable, not stuck.
+        MoneyMovementReceipt retried = ledgerService.transfer(customerAId, accountAId, destinationAccountNumber,
+                new BigDecimal("100.00"), "Should roll back", null, key);
+        assertThat(retried).isNotNull();
+        assertThat(accountRepository.findById(accountAId).orElseThrow().getBalance()).isEqualByComparingTo("900.00");
+    }
+
+    private static void await(CountDownLatch go) {
+        try {
+            go.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+    }
+
     private static String newKey() {
         return UUID.randomUUID().toString();
     }
