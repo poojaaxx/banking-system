@@ -2,7 +2,6 @@
 .git
 .github
 docs
-scripts
 e2e
 IMPLEMENTATION_STATUS.md
 README.md

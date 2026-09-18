@@ -26,6 +26,8 @@ FROM eclipse-temurin:17-jre-alpine AS runtime
 RUN addgroup -S bankingapp && adduser -S bankingapp -G bankingapp
 WORKDIR /app
 COPY --from=backend-build /app/backend/target/*.jar app.jar
+COPY scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 USER bankingapp
 
 ENV PORT=8080
@@ -37,4 +39,6 @@ ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+UseSerialGC"
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/actuator/health" || exit 1
 
-ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# See scripts/docker-entrypoint.sh: if DB_SSL_CA_PEM is set (hosted MySQL
+# requiring TLS, e.g. Aiven) it builds a truststore before starting the app.
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

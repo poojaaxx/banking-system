@@ -1,0 +1,4 @@
+# Shell scripts must keep LF endings on every platform -- a Windows checkout
+# with CRLF would break the #!/bin/sh shebang when Docker COPYs the file
+# verbatim into a Linux container.
+*.sh text eol=lf
