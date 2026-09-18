@@ -1,0 +1,49 @@
+# --- Java / Maven ---
+backend/target/
+!backend/.mvn/wrapper/maven-wrapper.jar
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+HELP.md
+
+# --- Node / Frontend ---
+frontend/node_modules/
+frontend/dist/
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+e2e/blob-report/
+node_modules/
+npm-debug.log*
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+!scripts/**/*.key.example
+
+# --- Build / OS ---
+dist/
+build/
+*.log
+.DS_Store
+Thumbs.db
+
+# --- IDE ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+.classpath
+.project
+.settings/
+
+# --- Docker ---
+docker/mysql-data/
+
+# --- Backups (never commit real backups) ---
+backups/*.sql
+backups/*.sql.gpg
+backups/*.enc
