@@ -3,6 +3,7 @@ package com.bankingdemo.ledger;
 import com.bankingdemo.account.Account;
 import com.bankingdemo.account.AccountRepository;
 import com.bankingdemo.account.AccountStatus;
+import com.bankingdemo.alert.AlertEvaluationService;
 import com.bankingdemo.common.ApiException;
 import com.bankingdemo.idempotency.IdempotencyKey;
 import com.bankingdemo.idempotency.IdempotencyKeyRepository;
@@ -36,6 +37,7 @@ class LedgerEngine {
     private final NotificationService notificationService;
     private final ReferenceGenerator referenceGenerator;
     private final ObjectMapper objectMapper;
+    private final AlertEvaluationService alertEvaluationService;
 
     @Transactional
     public MoneyMovementReceipt executeMovement(Long idempotencyRowId, MovementRequest request) {
@@ -90,6 +92,7 @@ class LedgerEngine {
         ledgerEntryRepository.save(credit);
 
         notifyRecipientIfExternalTransfer(request, destination);
+        alertEvaluationService.evaluateTransaction(transaction);
 
         MoneyMovementReceipt receipt = buildReceipt(request, source, destination, transaction);
 
@@ -150,6 +153,7 @@ class LedgerEngine {
                 ? destination.getBalance() : null;
 
         return new MoneyMovementReceipt(
+                transaction.getId(),
                 transaction.getReference(),
                 transaction.getType(),
                 transaction.getAmount(),

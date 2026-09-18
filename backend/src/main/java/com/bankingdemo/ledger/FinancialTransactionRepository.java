@@ -12,4 +12,6 @@ public interface FinancialTransactionRepository extends JpaRepository<FinancialT
     Page<FinancialTransaction> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     Page<FinancialTransaction> findByReferenceContainingIgnoreCaseOrderByCreatedAtDesc(String reference, Pageable pageable);
+
+    long countBySourceAccountIdAndTypeAndCreatedAtAfter(Long sourceAccountId, TransactionType type, java.time.Instant after);
 }

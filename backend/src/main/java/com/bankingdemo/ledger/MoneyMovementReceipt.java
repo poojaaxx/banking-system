@@ -10,6 +10,7 @@ import java.time.Instant;
  * transfer sender never learns the recipient's resulting balance.
  */
 public record MoneyMovementReceipt(
+        Long financialTransactionId,
         String reference,
         TransactionType type,
         BigDecimal amount,

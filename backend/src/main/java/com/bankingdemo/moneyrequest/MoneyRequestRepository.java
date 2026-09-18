@@ -26,8 +26,6 @@ public interface MoneyRequestRepository extends JpaRepository<MoneyRequest, Long
      * even under concurrent duplicate submissions.
      */
     @Modifying
-    @Query("update MoneyRequest r set r.status = :newStatus, r.financialTransactionId = :ftId, r.respondedAt = :now " +
-            "where r.id = :id and r.status = 'PENDING'")
-    int transitionFromPending(@Param("id") Long id, @Param("newStatus") MoneyRequestStatus newStatus,
-                               @Param("ftId") Long financialTransactionId, @Param("now") Instant now);
+    @Query("update MoneyRequest r set r.status = :newStatus, r.respondedAt = :now where r.id = :id and r.status = 'PENDING'")
+    int transitionFromPending(@Param("id") Long id, @Param("newStatus") MoneyRequestStatus newStatus, @Param("now") Instant now);
 }

@@ -1,5 +1,6 @@
 package com.bankingdemo.auth;
 
+import com.bankingdemo.alert.AlertEvaluationService;
 import com.bankingdemo.auth.dto.*;
 import com.bankingdemo.common.ApiException;
 import com.bankingdemo.customer.Customer;
@@ -19,6 +20,7 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -41,6 +43,7 @@ public class CustomerAuthController {
     private final ClientIpResolver clientIpResolver;
     private final AppProperties appProperties;
     private final PasswordEncoder passwordEncoder;
+    private final AlertEvaluationService alertEvaluationService;
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request,
@@ -62,8 +65,15 @@ public class CustomerAuthController {
                                                   HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         enforceRateLimit("login", httpRequest, appProperties.getRateLimit().getLoginPerMinute(), Duration.ofMinutes(1));
 
-        Authentication authResult = customerAuthenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.username(), request.password()));
+        Authentication authResult;
+        try {
+            authResult = customerAuthenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.username(), request.password()));
+        } catch (AuthenticationException ex) {
+            Long customerId = customerRepository.findByUsername(request.username()).map(Customer::getId).orElse(null);
+            alertEvaluationService.recordFailedLogin(request.username(), customerId);
+            throw ex;
+        }
         sessionAuthenticator.establishSession(authResult, httpRequest, httpResponse);
 
         Customer customer = customerRepository.findById(((CustomerPrincipal) authResult.getPrincipal()).getCustomerId())

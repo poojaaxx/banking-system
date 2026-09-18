@@ -52,22 +52,46 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
             """)
     List<TransactionHistoryRow> findAllHistoryForStatement(@Param("accountId") Long accountId, Pageable pageable);
 
+    /**
+     * Spending is scoped to the CUSTOMER (across all their accounts), not one
+     * account, since budgets are per-customer. Self-transfers (both legs
+     * owned by the same customer) are excluded from spending -- see CLAUDE.md.
+     */
     @Query("""
             select coalesce(sum(e.amount), 0)
-            from LedgerEntry e, FinancialTransaction f, Account src, Account dst
+            from LedgerEntry e, FinancialTransaction f, Account own, Account dst
             where e.financialTransactionId = f.id
-              and f.sourceAccountId = src.id
+              and e.accountId = own.id
               and f.destinationAccountId = dst.id
-              and e.accountId = :accountId
+              and own.ownerCustomerId = :customerId
               and e.direction = 'DEBIT'
               and e.categoryId = :categoryId
               and e.createdAt >= :monthStart
               and e.createdAt < :monthEnd
-              and (f.type <> 'TRANSFER' or src.ownerCustomerId <> dst.ownerCustomerId)
+              and (f.type <> 'TRANSFER' or own.ownerCustomerId <> dst.ownerCustomerId)
             """)
-    BigDecimal sumSpendingByCategoryExcludingTransfers(
-            @Param("accountId") Long accountId,
+    BigDecimal sumSpendingByCategoryForCustomer(
+            @Param("customerId") Long customerId,
             @Param("categoryId") Long categoryId,
+            @Param("monthStart") Instant monthStart,
+            @Param("monthEnd") Instant monthEnd);
+
+    @Query("""
+            select new com.bankingdemo.ledger.CategorySpendingRow(e.categoryId, sum(e.amount))
+            from LedgerEntry e, FinancialTransaction f, Account own, Account dst
+            where e.financialTransactionId = f.id
+              and e.accountId = own.id
+              and f.destinationAccountId = dst.id
+              and own.ownerCustomerId = :customerId
+              and e.direction = 'DEBIT'
+              and e.categoryId is not null
+              and e.createdAt >= :monthStart
+              and e.createdAt < :monthEnd
+              and (f.type <> 'TRANSFER' or own.ownerCustomerId <> dst.ownerCustomerId)
+            group by e.categoryId
+            """)
+    List<CategorySpendingRow> spendingByCategoryForCustomer(
+            @Param("customerId") Long customerId,
             @Param("monthStart") Instant monthStart,
             @Param("monthEnd") Instant monthEnd);
 }
