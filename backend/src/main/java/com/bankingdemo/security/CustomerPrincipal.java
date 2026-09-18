@@ -58,4 +58,22 @@ public class CustomerPrincipal implements UserDetails {
     public boolean isEnabled() {
         return active;
     }
+
+    /**
+     * Equality is based on identity alone (not credentials/state) so that
+     * {@link org.springframework.security.core.session.SessionRegistry} can
+     * find every active session for this customer across separate logins,
+     * each of which constructs a fresh CustomerPrincipal instance.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof CustomerPrincipal other)) return false;
+        return customerId.equals(other.customerId);
+    }
+
+    @Override
+    public int hashCode() {
+        return customerId.hashCode();
+    }
 }

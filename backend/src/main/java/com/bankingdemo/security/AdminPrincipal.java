@@ -38,4 +38,16 @@ public class AdminPrincipal implements UserDetails {
     public String getUsername() {
         return username;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof AdminPrincipal other)) return false;
+        return adminId.equals(other.adminId);
+    }
+
+    @Override
+    public int hashCode() {
+        return adminId.hashCode();
+    }
 }
