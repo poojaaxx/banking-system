@@ -31,6 +31,8 @@ server:
       cookie:
         http-only: true
         name: BANKINGDEMOSESSION
+        secure: ${COOKIE_SECURE:true}
+        same-site: ${COOKIE_SAME_SITE:lax}
 
 management:
   endpoints:
@@ -48,9 +50,6 @@ app:
     username: ${ADMIN_BOOTSTRAP_USERNAME:}
     email: ${ADMIN_BOOTSTRAP_EMAIL:}
     password: ${ADMIN_BOOTSTRAP_PASSWORD:}
-  cookie:
-    secure: ${COOKIE_SECURE:true}
-    same-site: ${COOKIE_SAME_SITE:Lax}
   demo-limits:
     max-funding-amount: ${DEMO_MAX_FUNDING_AMOUNT:100000}
     max-transfer-amount: ${DEMO_MAX_TRANSFER_AMOUNT:100000}
@@ -72,9 +71,11 @@ spring:
     url: "jdbc:mysql://localhost:3306/banking_demo?serverTimezone=UTC&sslMode=DISABLED&allowPublicKeyRetrieval=true"
     username: banking_app
     password: change_me_local_only
-app:
-  cookie:
-    secure: false
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
 
 ---
 # Used inside docker-compose: connects to the `mysql` service by name.
@@ -86,9 +87,11 @@ spring:
     url: "jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=UTC&sslMode=${DB_SSL_MODE:DISABLED}&allowPublicKeyRetrieval=true"
     username: ${DB_USER}
     password: ${DB_PASSWORD}
-app:
-  cookie:
-    secure: ${COOKIE_SECURE:false}
+server:
+  servlet:
+    session:
+      cookie:
+        secure: ${COOKIE_SECURE:false}
 
 ---
 # Hosted deployment (e.g. Render app service + Aiven MySQL). Requires TLS with
@@ -102,9 +105,11 @@ spring:
     url: "jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}?serverTimezone=UTC&sslMode=VERIFY_IDENTITY&trustCertificateKeyStoreUrl=${DB_SSL_TRUSTSTORE_URL}&trustCertificateKeyStorePassword=${DB_SSL_TRUSTSTORE_PASSWORD}"
     username: ${DB_USER}
     password: ${DB_PASSWORD}
-app:
-  cookie:
-    secure: true
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
 
 ---
 # Used only by backend automated tests. Testcontainers supplies the real
@@ -114,6 +119,8 @@ spring:
   config:
     activate:
       on-profile: test
-app:
-  cookie:
-    secure: false
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
