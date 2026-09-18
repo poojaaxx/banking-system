@@ -15,7 +15,11 @@ that before assuming any feature is complete.
 
 ## Architecture (pinned decisions — do not change without updating this file)
 
-- **Backend**: Java 17, Spring Boot 3.3.x, Spring Security 6.x, Spring Data JPA,
+- **Backend**: Java 17, Spring Boot 4.1.1 (pulls Spring Security 7.1.1,
+  Hibernate 7.4.5 — verified by `mvn dependency:tree`, not assumed; see
+  IMPLEMENTATION_STATUS.md "Notable environment-driven adaptations" for the
+  API differences this required, e.g. Jackson 3's `tools.jackson.databind`
+  package and `DaoAuthenticationProvider`'s constructor signature), Spring Data JPA,
   Maven (with `mvnw` wrapper committed). Modular monolith — packages by feature
   under `com.bankingdemo`, no microservices/Kafka/Redis/Kubernetes.
 - **Database**: MySQL 8.0, Flyway forward-only migrations under
