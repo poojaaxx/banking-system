@@ -1,0 +1,23 @@
+# Never send these into the Docker build context.
+.git
+.github
+docs
+scripts
+e2e
+IMPLEMENTATION_STATUS.md
+README.md
+CLAUDE.md
+.env
+.env.*
+!.env.example
+
+backend/target
+backend/.mvn/wrapper/*.jar
+
+frontend/node_modules
+frontend/dist
+e2e/node_modules
+e2e/test-results
+e2e/playwright-report
+
+**/*.log

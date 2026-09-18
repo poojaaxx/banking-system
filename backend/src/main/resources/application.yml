@@ -1,6 +1,14 @@
 spring:
   application:
     name: banking-backend
+  datasource:
+    hikari:
+      # Conservative on purpose: free-tier hosts and free-tier hosted MySQL
+      # both have small memory/connection budgets. See docs/deployment.md.
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:5}
+      minimum-idle: ${DB_POOL_MIN_IDLE:1}
+      connection-timeout: 10000
+      max-lifetime: 280000
   jpa:
     hibernate:
       ddl-auto: validate
