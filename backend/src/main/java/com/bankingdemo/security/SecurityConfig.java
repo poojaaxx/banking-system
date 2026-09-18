@@ -4,6 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import org.springframework.boot.web.servlet.ServletListenerRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
@@ -24,6 +25,15 @@ import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
+/**
+ * NOTE: on startup you'll see a benign log line from Spring Security core
+ * ("Found 2 UserDetailsService beans... Global Authentication Manager will
+ * not use a UserDetailsService"). That comes from
+ * InitializeUserDetailsBeanManagerConfigurer building its own unused
+ * fallback global AuthenticationManager and is expected here -- we never use
+ * that fallback; customerAuthenticationManager/adminAuthenticationManager
+ * below are the only AuthenticationManagers this app actually uses.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -33,7 +43,15 @@ public class SecurityConfig {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 
+    /**
+     * Marked @Primary only so Spring Security's own internal auto-config
+     * (which expects a single default AuthenticationManager bean) doesn't
+     * throw on startup -- our controllers always inject the specific named
+     * bean they need (customerAuthenticationManager / adminAuthenticationManager)
+     * and never rely on this default.
+     */
     @Bean
+    @Primary
     public AuthenticationManager customerAuthenticationManager(
             CustomerUserDetailsService customerUserDetailsService, PasswordEncoder passwordEncoder) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(customerUserDetailsService);
