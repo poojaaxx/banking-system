@@ -23,7 +23,7 @@ export function RegisterPage() {
         <div className="card auth-card">
           <h1>Save your recovery codes</h1>
           <p>
-            This demo bank has no email verification, so these one-time recovery codes are the only way to get back into your
+            There is no email verification, so these one-time recovery codes are the only way to get back into your
             account if you forget your password. Each code works once. Store them somewhere safe now — they will never be shown
             again.
           </p>
@@ -43,9 +43,6 @@ export function RegisterPage() {
   return (
     <div className="auth-shell">
       <div className="card auth-card">
-        <div className="demo-banner" style={{ marginBottom: 16, borderRadius: 8 }}>
-          Demo banking — fictional money
-        </div>
         <h1>Create your account</h1>
         {register.isError && <ErrorBanner error={register.error} />}
         <form onSubmit={onSubmit} noValidate>
@@ -56,7 +53,7 @@ export function RegisterPage() {
           <div className="field">
             <label htmlFor="email">Email</label>
             <input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-            <span className="hint">Not verified — this is a demo, not a real onboarding flow.</span>
+            <span className="hint">Not verified.</span>
           </div>
           <div className="field">
             <label htmlFor="username">Username</label>

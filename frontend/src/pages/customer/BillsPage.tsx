@@ -44,7 +44,6 @@ export function BillsPage() {
   return (
     <div className="stack">
       <h1>Bill pay</h1>
-      <p className="alert alert-warning">Demo banking — these are fictional billers. No real bill is ever paid.</p>
       <div className="card">
         <h2>Pay a bill</h2>
         {message && <div className="alert alert-info">{message}</div>}

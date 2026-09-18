@@ -18,9 +18,6 @@ export function CustomerLoginPage() {
   return (
     <div className="auth-shell">
       <div className="card auth-card">
-        <div className="demo-banner" style={{ marginBottom: 16, borderRadius: 8 }}>
-          Demo banking — fictional money
-        </div>
         <h1>Log in</h1>
         {login.isError && <ErrorBanner error={login.error} />}
         <form onSubmit={onSubmit} noValidate>

@@ -27,7 +27,6 @@ export function AdminLayout() {
 
   return (
     <div className="app-shell">
-      <div className="demo-banner">Demo banking — fictional money. Administrator console.</div>
       <header className="app-header">
         <div className="row">
           <button
@@ -39,7 +38,7 @@ export function AdminLayout() {
           >
             Menu
           </button>
-          <span className="brand">🏦 Demo Bank Admin</span>
+          <span className="brand">🏦 SecureBank Admin</span>
         </div>
         <div className="row">
           {session?.admin && <span className="text-muted">Signed in as {session.admin.username}</span>}

@@ -36,7 +36,6 @@ export function CustomerLayout() {
       <a href="#main-content" className="skip-link">
         Skip to content
       </a>
-      <div className="demo-banner">Demo banking — fictional money. No real funds are involved.</div>
       <header className="app-header">
         <div className="row">
           <button
@@ -48,7 +47,7 @@ export function CustomerLayout() {
           >
             Menu
           </button>
-          <span className="brand">🏦 Demo Bank</span>
+          <span className="brand">🏦 SecureBank</span>
         </div>
         <div className="row">
           {session?.customer && (

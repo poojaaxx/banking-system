@@ -72,8 +72,7 @@ export function AccountDetailPage() {
 
       {activeForm && (
         <div className="card no-print">
-          <h2>{activeForm === 'deposit' ? 'Simulated deposit' : 'Simulated withdrawal'}</h2>
-          <p className="text-muted">Demo banking — fictional money. No real funds move.</p>
+          <h2>{activeForm === 'deposit' ? 'Deposit' : 'Withdrawal'}</h2>
           <DepositWithdrawForm
             accountId={account.id}
             kind={activeForm}

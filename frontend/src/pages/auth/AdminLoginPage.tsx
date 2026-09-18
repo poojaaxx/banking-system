@@ -18,9 +18,6 @@ export function AdminLoginPage() {
   return (
     <div className="auth-shell">
       <div className="card auth-card">
-        <div className="demo-banner" style={{ marginBottom: 16, borderRadius: 8 }}>
-          Demo banking — administrator console
-        </div>
         <h1>Administrator login</h1>
         <p className="text-muted">There is no public admin registration. Accounts are bootstrapped by the operator.</p>
         {login.isError && <ErrorBanner error={login.error} />}
