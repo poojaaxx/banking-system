@@ -35,47 +35,53 @@ if (model.startsWith('openai/gpt-oss')) {
   body.reasoning_effort = process.env.GROQ_REASONING_EFFORT ?? 'low'
 }
 
-const started = performance.now()
-let response
-try {
-  response = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15_000),
-  })
-} catch (error) {
-  console.log(`FAILED: request did not complete (${error.name}). Live-provider verification NOT achieved.`)
-  process.exit(1)
-}
-const latencyMs = Math.round(performance.now() - started)
+async function main() {
+  const started = performance.now()
+  let response
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15_000),
+    })
+  } catch (error) {
+    console.log(`FAILED: request did not complete (${error.name}). Live-provider verification NOT achieved.`)
+    return 1
+  }
+  const latencyMs = Math.round(performance.now() - started)
 
-const h = (name) => response.headers.get(name) ?? '-'
-console.log(`status=${response.status} latencyMs=${latencyMs} model=${model}`)
-console.log(`rate-limit headers: remaining-requests=${h('x-ratelimit-remaining-requests')} remaining-tokens=${h('x-ratelimit-remaining-tokens')} retry-after=${h('retry-after')}`)
+  const h = (name) => response.headers.get(name) ?? '-'
+  console.log(`status=${response.status} latencyMs=${latencyMs} model=${model}`)
+  console.log(`rate-limit headers: remaining-requests=${h('x-ratelimit-remaining-requests')} remaining-tokens=${h('x-ratelimit-remaining-tokens')} retry-after=${h('retry-after')}`)
 
-if (!response.ok) {
-  console.log('FAILED: provider returned an error status. Live-provider verification NOT achieved.')
-  process.exit(1)
+  if (!response.ok) {
+    console.log('FAILED: provider returned an error status. Live-provider verification NOT achieved.')
+    return 1
+  }
+
+  const payload = await response.json().catch(() => null)
+  const content = payload?.choices?.[0]?.message?.content
+  let parsed = null
+  try {
+    parsed = JSON.parse(content)
+  } catch {
+    /* handled below */
+  }
+  const checks = {
+    hasChoice: Boolean(content),
+    contentIsJson: parsed !== null && typeof parsed === 'object',
+    hasAnswerString: typeof parsed?.answer === 'string' && parsed.answer.length > 0,
+  }
+  console.log('checks:', JSON.stringify(checks))
+  if (Object.values(checks).every(Boolean)) {
+    console.log('PASSED: the provider accepted the request shape and returned parseable JSON.')
+    return 0
+  }
+  console.log('FAILED: reply did not have the expected structure. Live-provider verification NOT achieved.')
+  return 1
 }
 
-const payload = await response.json().catch(() => null)
-const content = payload?.choices?.[0]?.message?.content
-let parsed = null
-try {
-  parsed = JSON.parse(content)
-} catch {
-  /* handled below */
-}
-const checks = {
-  hasChoice: Boolean(content),
-  contentIsJson: parsed !== null && typeof parsed === 'object',
-  hasAnswerString: typeof parsed?.answer === 'string' && parsed.answer.length > 0,
-}
-console.log('checks:', JSON.stringify(checks))
-if (Object.values(checks).every(Boolean)) {
-  console.log('PASSED: the provider accepted the request shape and returned parseable JSON.')
-  process.exit(0)
-}
-console.log('FAILED: reply did not have the expected structure. Live-provider verification NOT achieved.')
-process.exit(1)
+// Set exitCode instead of calling process.exit(): exiting with fetch sockets still closing trips a libuv
+// assertion on Windows (exit code 127 after the result had already printed).
+process.exitCode = await main()

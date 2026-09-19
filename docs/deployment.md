@@ -153,6 +153,38 @@ free service):
       spin-down/wake cycle) → confirm customers/balances/history persisted
       and a fresh login works (sessions do not persist — that's expected)
 
+## The deployed instance (verified 2026-09-19)
+
+Live at `https://securebank-app-k1a4.onrender.com` from commit `2f3294c` on
+`feature/initial-build`; every checklist item above was exercised with fictional
+data and passed (evidence and the test-script corrections are in
+[IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md), sections 6 and 6b).
+Facts observed on the real services, not taken from docs:
+
+- Aiven's service page showed **MySQL 8.4.8**, plan **Free-1-1gb**, `SSL mode: REQUIRED`
+  (the TLS enforcement the doc page did not state). An account-level banner
+  advertises trial credits for *non-free* plans; the billing report showed
+  $0.00 costs / $0.00 credits for this service. Render's billing page showed
+  the Hobby plan and "No card on file".
+- The default compute plan in Render's *New Web Service* form is **$7/month** -
+  select **Free** explicitly. Region: Singapore is closest to Aiven Bangalore.
+- Render with auto-deploy Off: editing environment variables offers only
+  **Save only**; follow it with **Manual Deploy → Deploy latest commit** (or
+  *Restart service*) for the change to take effect. Secret values in the
+  dashboard are masked and read-only until you click *Show secret*.
+- Generated env files created on Windows may have CRLF line endings. A trailing
+  `\r` silently ends up in the pasted value; normalise (`sed -i 's/\r$//'`)
+  before copying values anywhere.
+- Free-tier CPU (0.1) makes registration (bcrypt of the password and ten
+  recovery codes) take several seconds. To run the browser specs against the
+  public URL use `e2e/playwright.public.config.ts` (longer timeouts), keep the
+  volume low (registration is rate-limited per IP), and set
+  `E2E_TARGET=packaged` for the static-asset 404 spec.
+- Verify database TLS from the server side, not from config: with the CA file,
+  `SELECT ssl_version, ssl_cipher, COUNT(*) FROM sys.session_ssl_status s JOIN
+  performance_schema.threads t USING (thread_id) WHERE t.processlist_user = '<db user>' GROUP BY 1, 2`.
+  Read-only; never run test suites or resets against the hosted database.
+
 ## What NOT to do
 
 - Do not add a paid Render instance type, a persistent disk add-on, a paid

@@ -1,6 +1,6 @@
 # Implementation Status
 
-Last updated: 2026-09-19.
+Last updated: 2026-09-19 (public deployment verified).
 
 Every item says **where** it was verified, because these are different claims:
 
@@ -15,12 +15,12 @@ Every item says **where** it was verified, because these are different claims:
 
 | Claim | local | CI | real Groq | public |
 | --- | --- | --- | --- | --- |
-| Core banking (accounts, ledger, idempotency, concurrency, admin) | [x] | [x] | n/a | [ ] |
-| Unusual-activity checks, Insights, forecasts | [x] | [x] | n/a | [ ] |
-| Assistant / categorization **with the model unavailable** (labelled fallback) | [x] | [x] | n/a | [ ] |
-| Assistant / categorization **against a simulated provider** (429, 401, 500, timeout, quota) | [x] | [x] | n/a | [ ] |
-| Assistant / categorization **against the real Groq API** | n/a | n/a | **[x] local stack, 2026-09-19** (assistant, categorization, separate invalid-key failure test) | [ ] |
-| Deployment on Render + Aiven | n/a | n/a | n/a | **[!] NOT DEPLOYED — needs your accounts** |
+| Core banking (accounts, ledger, idempotency, concurrency, admin) | [x] | [x] | n/a | [x] |
+| Unusual-activity checks, Insights, forecasts | [x] | [x] | n/a | [~] Insights endpoint 200 only; alert delivery not re-run publicly |
+| Assistant / categorization **with the model unavailable** (labelled fallback) | [x] | [x] | n/a | [x] (no key, and rejected key) |
+| Assistant / categorization **against a simulated provider** (429, 401, 500, timeout, quota) | [x] | [x] | n/a | n/a |
+| Assistant / categorization **against the real Groq API** | n/a | n/a | **[x] 2026-09-19** (new key; smoke exit 0) | **[x] 2026-09-19** (12/12 on the public URL) |
+| Deployment on Render + Aiven | n/a | n/a | n/a | **[x] https://securebank-app-k1a4.onrender.com** at `2f3294c` |
 
 ## 0. Foundation
 - [x] local — Root structure, `.gitignore`, `.gitattributes`, `.env.example`, `CLAUDE.md`, `README.md`, this file.
@@ -54,15 +54,29 @@ Every item says **where** it was verified, because these are different claims:
 - [x] local — `docker compose up --build` (verified repeatedly, including a `V10` upgrade of an existing database). Compose now passes `RATE_LIMIT_*` through (previously documented but silently ignored) and the AI variables.
 
 ## 6. Deployment
-- [x] local (research) — Free-tier terms re-read from Render's and Aiven's own pages on 2026-09-19 ([docs/deployment.md](docs/deployment.md)), including what those pages do **not** state (Render's page does not say sign-up never asks for a card; Aiven's does not state TLS enforcement).
-- [!] public — **Not deployed.** Creating a Render web service and an Aiven MySQL service requires signing in to those providers with your own accounts, and confirming in their sign-up flows that no card is requested. That cannot be done on your behalf. `render.yaml` + `docs/deployment.md` make it a short manual procedure. No public URL exists and none is claimed.
+- [x] local (research) - Free-tier terms re-read from Render's and Aiven's pages on 2026-09-19 ([docs/deployment.md](docs/deployment.md)).
+- [x] **public - DEPLOYED 2026-09-19: https://securebank-app-k1a4.onrender.com**
+  - Render web service `securebank-app`: Docker, **Free** instance, Singapore, branch `feature/initial-build`, **deployed commit `2f3294c`** (green CI), auto-deploy **Off**, health check `/actuator/health`. Workspace billing page: plan *Hobby*, **"No card on file"**. No disk, worker, cron or custom domain.
+  - Aiven service `mysql-20edaaf5`: **MySQL 8.4.8**, plan **Free-1-1gb** (1 CPU / 1 GB), DigitalOcean Bangalore. The account also shows a platform-trial banner for *non-free* plans; the billing report shows **$0.00 costs and $0.00 applied credits**, so this service is not trial-funded. Nothing else was created there.
+  - **Database TLS verified (not just configured):** `openssl` verification of the Aiven CA chain and hostname (correct host accepted, wrong host rejected with "hostname mismatch"); `mysql --ssl-mode=VERIFY_IDENTITY` succeeds, and fails without the CA; and, from the server side (`sys.session_ssl_status`), every connection opened by the deployed app is **TLSv1.3 / TLS_AES_256_GCM_SHA384**. The truststore is built from `DB_SSL_CA_PEM` at container start and Hikari uses `sslMode=VERIFY_IDENTITY`.
+  - Flyway V1-V10 applied to the empty Aiven database on MySQL 8.4.8 (my earlier tests used 8.0) with the production settings, from a local container, before the Render deploy. No destructive statement was ever run against Aiven. Read-only check on the public database: ledger credits minus debits = 0.00.
+  - Secrets live only in Render's environment, Git-ignored local files (`.env`, `.env.deploy`, `.env.deploy.ca.pem`, `.env.local-admin`; all excluded from the Docker context) and Aiven. `ADMIN_BOOTSTRAP_PASSWORD` was removed from Render after the admin existed.
+  - **Known limits (free tier):** sleeps after 15 min idle (about 1 min cold start; all sessions lost, data kept); 0.1 CPU, so registration (bcrypt of the password plus 10 recovery codes) takes several seconds; Aiven may power off an idle free database.
+
+## 6b. Public verification (2026-09-19, https://securebank-app-k1a4.onrender.com, fictional data only)
+- [x] HTTPS with HSTS, HTTP to HTTPS 301, `Secure` cookies; `/actuator/health` UP; `/actuator/env` 404; JS/CSS served with correct content types; missing asset returns 404 (not HTML); SPA routes serve the app; unknown/unsupported API paths return JSON errors.
+- [x] API run (40 checks, after correcting my own script's wrong expectations - see below): registration (+10 recovery codes), login/logout, wrong password 401, recovery-code login and single use, accounts, deposit, withdrawal, overdraft rejected, concurrent identical requests give exactly one applied result (the other got 409 in-flight), sequential retry replays the same reference, same key with a different body gives 409, exact balances, own-account transfer rejected, ownership denial (403 on read, spend and history), customer denied on the admin API, statement CSV, support ticket plus admin reply, persisted notification, admin login with the **new** credentials, admin cannot use customer money endpoints, **freeze, transfer rejected, unfreeze, transfer works**.
+- [x] Browser (Playwright, the existing specs via `e2e/playwright.public.config.ts`): 9/9, including **two browser contexts where a transfer updates the recipient's balance and unread badge live over SSE**, duplicate-submission safety, ownership denial, admin routes reject a customer session, hard-refresh session persistence, and the missing-asset 404 (`E2E_TARGET=packaged`).
+- [x] **Persistence:** after a Render restart (and after redeploys) customers, accounts, balances, transactions, notifications and admin login persisted; a session cookie captured *before* a redeploy returned **401 afterwards**; fresh logins worked.
+- [x] **Real Groq, public:** assistant `aiGenerated=true / NONE`; on-demand categorization `source=AI`; a prompt-injection request was refused; a request for another customer's account was answered only from the caller's own data and the recipient's balance was unchanged; an over-reaching question produced a model answer with a figure the backend never supplied and it was **rejected** (`AI_ANSWER_REJECTED`), with the backend's own figure shown; AI categorization of another customer's entry returned 403. **Provider failure on the public app:** with a deliberately invalid key the assistant returned the labelled "Calculated answer" and `aiAvailable=false`, with banking unaffected; the real key was then restored and genuine answers resumed.
+- [ ] Not re-run publicly: unusual-activity alert delivery over SSE (covered locally and in CI), Insights with populated history, a real Groq 429/5xx.
+- Test-script mistakes corrected during the run (not application defects): expecting an anonymous session right after registration (registration signs the user in), expecting both concurrent duplicates to return 200 (one correctly returns 409), miscounting posted rows, omitting the required `reason` on unfreeze, and treating 204 as failure. Playwright's default 5-second assertion timeout is too short for the free instance's bcrypt registration, hence the public config.
 
 ## 7. Backup & restore
 - [x] local — `scripts/backup.sh` / `restore.sh` were executed end to end at schema `V8` (see `docs/backup-restore.md`). Not re-run at `V10`; the procedure is unchanged, but that specific run is not repeated here.
 
 ## 8. CI
-- [x] CI — GitHub Actions run [`35419718879`](https://github.com/poojaaxx/banking-system/actions/runs/35419718879) on the release commit **`1ee87baf7ef2c2a11498dcf1755feb5e894b657c`** (`feature/initial-build`, push event) finished **success**, observed on 2026-09-19 through GitHub's public API. All three jobs passed: backend tests on real MySQL via Testcontainers, frontend unit tests + build, and Playwright against the packaged Docker image. The repository is public, so Actions minutes are free.
-- This documentation-only follow-up commit is a different commit; its own run is not claimed here.
+- [x] CI - the deployed commit **`2f3294c`** and its predecessors `1ee87ba` (run `35419718879`), `ad2c9c6` and `5cda9e7` (run `35425791697`) all finished **success** on GitHub Actions (backend on real MySQL via Testcontainers, frontend, packaged Playwright), observed via GitHub's public API on 2026-09-19. Later documentation/script-only commits get their own runs; they are not what is deployed.
 
 ## What went wrong along the way (kept for honesty)
 
@@ -78,9 +92,14 @@ This release:
 - **The OneDrive build directory was clobbered mid-run** (51 errors of `ClassNotFoundException`, including pure unit tests). The same tests had passed class-by-class; the trustworthy 110/110 comes from a clean build outside OneDrive.
 - **A hard-coded local demo admin password** was committed in `e2e/final-demo.mjs` in `94f8418` and is therefore in the public history. The script now reads it from the environment. History was not rewritten. On 2026-09-19 that password was rotated in the local database (documented `UPDATE admins` procedure), sessions were invalidated by restart, and the old value was confirmed rejected (HTTP 401). It was never deployed anywhere.
 
+- **Groq key exposed in the session.** A file-sync notice printed `.env`, including the Groq key. It was recognised as the key still configured (the console listed a key with the same last characters), a replacement was created and written straight into `.env`, and the exposed key was **revoked** in the Groq console. Nothing else secret was in that file (local placeholder DB passwords; blank admin bootstrap value).
+- **Windows carriage returns in a generated env file.** `.env.deploy` had CRLF endings on its first four lines, so my first copy into Render put a trailing `\r` on `ADMIN_BOOTSTRAP_USERNAME/EMAIL/PASSWORD` and `DB_SSL_TRUSTSTORE_PASSWORD`. The app still worked (bootstrap skipped; truststore password used consistently), but it was wrong: the values were corrected, the file normalised to LF, and the bootstrap password variable removed. A first attempt to delete that row also removed `TRUST_PROXY_HEADERS`; that was noticed on re-listing and re-added before any verification relied on it.
+- **`ai-smoke.mjs` exited 127 on Windows** (libuv assertion from `process.exit()` while sockets were closing). Fixed by setting `process.exitCode`; verified exit 0 with a valid key, 1 with a rejected key, 2 with no key and `--require`.
+- **Pre-existing minor quirk, not changed:** `HEAD /` returns 401 (GET works). Render's health check uses `GET /actuator/health`; only HEAD-based uptime monitors would notice.
+
 ## Known blockers / external actions
-- **Groq key hygiene:** the key was echoed into the assistant session by a file-sync notice; revoke it in the Groq console and create a fresh one before any public use. Real-Groq behaviour on a live 429/5xx is untested.
-- **Public deployment:** your own Render and Aiven sign-ups (see `docs/deployment.md`).
+- **Real Groq 429/5xx** behaviour is covered only by simulated-provider tests; the live provider was exercised for success and for a rejected key.
+- **Ongoing:** the free tiers can sleep (Render) or power off (Aiven) when idle and are not for production; Groq's free plan limits are organisation-wide. No blockers for the deployed demo.
 
 ## Notable environment-driven adaptations
 - Spring Boot 4.1.1 fine-grained starters; Jackson 3 (`tools.jackson.databind`); Spring Security 7's `DaoAuthenticationProvider` constructor; Hibernate 7.4.5 / Jakarta Persistence 3.2.

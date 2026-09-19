@@ -1,0 +1,23 @@
+import { chromium } from '@playwright/test';
+import fs from 'node:fs';
+const mode=process.argv[2];
+const key = mode==='invalid' ? 'gsk_invalid_key_for_failure_test' : (fs.readFileSync('../.env','utf8').match(/^GROQ_API_KEY=(.*)$/m)||[])[1].trim();
+const b = await chromium.connectOverCDP('http://127.0.0.1:9222');
+const p = b.contexts()[0].pages().find(x=>x.url().includes('render'));
+await p.goto('https://dashboard.render.com/web/srv-dan37t142hec73d24eug/env'); await p.waitForTimeout(3000);
+await p.getByRole('button',{name:'Edit',exact:true}).first().scrollIntoViewIfNeeded(); await p.getByRole('button',{name:'Edit',exact:true}).first().click(); await p.getByRole('button',{name:'Save only'}).waitFor({timeout:15000}); await p.waitForTimeout(1500);
+const keys = await p.evaluate(()=>[...document.querySelectorAll('tr')].filter(tr=>tr.querySelector('textarea')).map(tr=>tr.querySelector('input')?.value));
+const row = p.locator('tr:has(textarea)').nth(keys.indexOf('GROQ_API_KEY'));
+if (await row.getByRole('button',{name:/show secret/i}).count()) await row.getByRole('button',{name:/show secret/i}).click();
+await p.waitForTimeout(600);
+await row.locator('textarea').fill(key);
+const got = await row.locator('textarea').evaluate(t=>t.value.length);
+console.log('field length after fill:', got, 'expected', key.length);
+if (got !== key.length) { console.log('fill did not take; aborting without saving'); process.exit(1); }
+await p.getByRole('button',{name:'Save only'}).click(); await p.waitForTimeout(2500);
+await p.reload(); await p.waitForTimeout(2500);
+await p.getByRole('button',{name:'Manual Deploy'}).click();
+await p.getByRole('menuitem',{name:'Deploy latest commit'}).click();
+await p.waitForTimeout(2500);
+console.log(mode,'key saved + deploy triggered', new Date().toISOString().slice(11,19), '| keys', keys.length);
+await b.close();
