@@ -76,7 +76,7 @@ This release:
 - **Documented but ignored settings.** `RATE_LIMIT_*` in `.env.example` were never passed by `docker-compose.yml`; the e2e suite tripped the (working) registration limiter. Fixed; CI raises the limit for its throwaway stack only.
 - **A faulty scripted edit corrupted `docker-compose.yml`** (my search matched the wrong service). The file was clean in git, so it was restored and re-edited precisely.
 - **The OneDrive build directory was clobbered mid-run** (51 errors of `ClassNotFoundException`, including pure unit tests). The same tests had passed class-by-class; the trustworthy 110/110 comes from a clean build outside OneDrive.
-- **A hard-coded local admin password** (`admin-demo-password-123`) was committed in `e2e/final-demo.mjs` in `94f8418` and is therefore in the public history. The script now reads it from the environment. History was not rewritten. Do not reuse that password anywhere real; it was only ever the local demo admin.
+- **A hard-coded local demo admin password** was committed in `e2e/final-demo.mjs` in `94f8418` and is therefore in the public history. The script now reads it from the environment. History was not rewritten. On 2026-09-19 that password was rotated in the local database (documented `UPDATE admins` procedure), sessions were invalidated by restart, and the old value was confirmed rejected (HTTP 401). It was never deployed anywhere.
 
 ## Known blockers / external actions
 - **Real Groq verification:** set `GROQ_API_KEY` (free key, no card) and run `node scripts/ai-smoke.mjs --require`; then use the assistant in the app.
