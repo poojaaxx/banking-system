@@ -19,7 +19,7 @@ Every item says **where** it was verified, because these are different claims:
 | Unusual-activity checks, Insights, forecasts | [x] | [x] | n/a | [ ] |
 | Assistant / categorization **with the model unavailable** (labelled fallback) | [x] | [x] | n/a | [ ] |
 | Assistant / categorization **against a simulated provider** (429, 401, 500, timeout, quota) | [x] | [x] | n/a | [ ] |
-| Assistant / categorization **against the real Groq API** | n/a | n/a | **[ ] NOT DONE — no `GROQ_API_KEY` available** | [ ] |
+| Assistant / categorization **against the real Groq API** | n/a | n/a | **[x] local stack, 2026-09-19** (assistant, categorization, separate invalid-key failure test) | [ ] |
 | Deployment on Render + Aiven | n/a | n/a | n/a | **[!] NOT DEPLOYED — needs your accounts** |
 
 ## 0. Foundation
@@ -79,7 +79,7 @@ This release:
 - **A hard-coded local demo admin password** was committed in `e2e/final-demo.mjs` in `94f8418` and is therefore in the public history. The script now reads it from the environment. History was not rewritten. On 2026-09-19 that password was rotated in the local database (documented `UPDATE admins` procedure), sessions were invalidated by restart, and the old value was confirmed rejected (HTTP 401). It was never deployed anywhere.
 
 ## Known blockers / external actions
-- **Real Groq verification:** set `GROQ_API_KEY` (free key, no card) and run `node scripts/ai-smoke.mjs --require`; then use the assistant in the app.
+- **Groq key hygiene:** the key was echoed into the assistant session by a file-sync notice; revoke it in the Groq console and create a fresh one before any public use. Real-Groq behaviour on a live 429/5xx is untested.
 - **Public deployment:** your own Render and Aiven sign-ups (see `docs/deployment.md`).
 
 ## Notable environment-driven adaptations
