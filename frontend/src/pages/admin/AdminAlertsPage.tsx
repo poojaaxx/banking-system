@@ -26,7 +26,7 @@ export function AdminAlertsPage() {
         </label>
       </div>
       <p className="text-muted">
-        Simple, explainable threshold rules (large transactions, rapid transfers, repeated failed logins) — not AI fraud detection.
+        Simple, explainable threshold rules and per-customer statistical checks (large transactions, rapid transfers, repeated failed logins, unusually large or repeated payments) — not AI fraud detection. Alerts only notify; they never freeze accounts or block payments.
       </p>
       {isLoading && <LoadingState />}
       {isError && <ErrorBanner error={error} onRetry={() => refetch()} />}

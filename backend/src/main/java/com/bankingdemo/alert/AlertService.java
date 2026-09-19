@@ -4,11 +4,13 @@ import com.bankingdemo.audit.AuditService;
 import com.bankingdemo.common.ApiException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +24,14 @@ public class AlertService {
         return onlyUnacknowledged
                 ? accountAlertRepository.findByAcknowledgedAtIsNullOrderByCreatedAtDesc(pageable)
                 : accountAlertRepository.findAllByOrderByCreatedAtDesc(pageable);
+    }
+
+    /** The customer's own unusual-activity alerts only; ownership is enforced by the customer-id filter itself. */
+    @Transactional(readOnly = true)
+    public List<AccountAlert> listUnusualActivityForCustomer(Long customerId, int limit) {
+        return accountAlertRepository.findByCustomerIdAndRuleCodeInOrderByCreatedAtDesc(customerId,
+                List.of(UnusualActivityDetector.LARGE_SPEND_RULE, UnusualActivityDetector.REPEATED_PAYMENT_RULE),
+                PageRequest.of(0, Math.min(Math.max(limit, 1), 50)));
     }
 
     @Transactional

@@ -55,16 +55,16 @@ public class AiCategorizer {
             }
             String code = reply.categoryCode().toUpperCase(Locale.ROOT).trim();
             if (!allowedCodes.contains(code)) {
-                log.info("Discarding AI category suggestion outside allowed set: {}", code);
+                log.info("Discarding AI category suggestion outside the allowed set");
                 return Optional.empty();
             }
             double confidence = reply.confidence() == null ? 0.5 : Math.max(0.0, Math.min(1.0, reply.confidence()));
             return Optional.of(new AiMatch(code, confidence));
         } catch (AiUnavailableException e) {
-            log.info("AI category suggestion unavailable: {}", e.getMessage());
+            log.info("AI category suggestion unavailable: reason={}", e.getReason());
             return Optional.empty();
         } catch (RuntimeException e) {
-            log.warn("AI category suggestion failed to parse, discarding", e);
+            log.warn("AI category suggestion unusable, discarding ({})", e.getClass().getSimpleName());
             return Optional.empty();
         }
     }

@@ -80,6 +80,9 @@ jobs:
           sed -i "s/^MYSQL_ROOT_PASSWORD=.*/MYSQL_ROOT_PASSWORD=ci_only_root_password/" .env
           sed -i "s/^DB_PASSWORD=.*/DB_PASSWORD=ci_only_password/" .env
           sed -i "s/^ADMIN_BOOTSTRAP_PASSWORD=.*/ADMIN_BOOTSTRAP_PASSWORD=ci-only-admin-password-123/" .env
+          # The E2E suite registers dozens of customers from one IP; production keeps the strict default (20/hour).
+          sed -i "s/^RATE_LIMIT_REGISTER_PER_HOUR=.*/RATE_LIMIT_REGISTER_PER_HOUR=1000/" .env
+          sed -i "s/^RATE_LIMIT_LOGIN_PER_MINUTE=.*/RATE_LIMIT_LOGIN_PER_MINUTE=200/" .env
 
       - name: Build and start the stack
         run: docker compose up --build -d

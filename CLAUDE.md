@@ -36,7 +36,11 @@ that before assuming any feature is complete.
   unique reference; transfers = linked debit+credit; deposits/withdrawals post
   against dedicated system counterpart accounts (`SYSTEM_CASH`, etc.) that are
   excluded from recipient search and customer totals. No UPDATE/DELETE on posted
-  ledger rows — corrections are new linked entries.
+  ledger rows — corrections are new linked entries. One deliberate, narrow
+  exception: `ledger_entries.category_id` is non-financial metadata the
+  customer may change (it was already settable at transaction time); every
+  change is recorded in the append-only `ledger_entry_category_audit` (V9).
+  Amount, direction, balance_after and timestamps are never updated.
 - **Idempotency**: dedicated `idempotency_keys` table, unique on
   `(customer_id, operation_type, idempotency_key)`, storing a canonical request
   fingerprint hash + the resulting operation reference + response snapshot.
@@ -49,7 +53,7 @@ that before assuming any feature is complete.
   existing session cookie (no token in URL). Notifications are persisted to
   `notifications` table *before* publish; SSE is a hint to refetch/refresh via
   TanStack Query, never the source of truth for balances.
-- **Frontend**: React 18 + TypeScript + Vite, React Router v6, TanStack Query v5.
+- **Frontend**: React 19 + TypeScript + Vite, React Router 7, TanStack Query 5.
   Dev proxy (`vite.config.ts`) forwards `/api` to the backend so the browser only
   ever talks to one origin — this is required for cookie/CSRF behavior to match
   prod (same-origin).
@@ -66,6 +70,32 @@ that before assuming any feature is complete.
   tier, pending verification of current free-tier terms at deploy time (see
   IMPLEMENTATION_STATUS.md for verification status — do not assume it's still
   free without checking).
+
+## Optional AI, unusual-activity checks and insights
+
+- **AI is optional and never authoritative.** `com.bankingdemo.ai`: Groq (free
+  plan, `openai/gpt-oss-20b`) behind an `AiChatClient` interface. Blank
+  `GROQ_API_KEY` disables it; every AI path has a labelled deterministic
+  fallback ("Calculated answer"). The model has no tools and no authority to
+  move money, change balances, freeze accounts or run SQL. Model output is
+  verified against backend-computed context (`AssistantAnswerValidator`) and
+  financial facts shown to users come from backend fields, not model text.
+  Never send passwords, recovery codes, session tokens, full account numbers or
+  names/emails to a model; never log prompts, responses or keys. Details and the
+  dated free-plan verification: [docs/ai-features.md](docs/ai-features.md).
+- **Insights, unusual-activity flags and forecasts are pure backend statistics**
+  (`com.bankingdemo.insights`, `alert.UnusualActivityDetector`) with no model.
+  They extend the existing `alert_rules`/`account_alerts` tables. They are
+  labelled "statistical check"/"rule", never "AI fraud detection", and may only
+  notify: never freeze, block or move money. Baselines use only
+  pre-transaction data; alert writes are `INSERT IGNORE` and errors are
+  swallowed so an alert can never fail a transfer. Method, thresholds and
+  synthetic held-out results: [docs/insights.md](docs/insights.md).
+- Time-dependent logic takes the injectable `java.time.Clock` bean.
+- Do not present synthetic-fixture results as real-user accuracy, and do not
+  show confidence percentages that were not computed.
+- The UI keeps SecureBank branding and a *discreet* fictional-funds note (login,
+  register, footer, About page) — no large demo banners.
 
 ## Working conventions
 
@@ -96,8 +126,9 @@ cd backend; .\mvnw.cmd spring-boot:run
 # Frontend only (dev, proxies /api to localhost:8080)
 cd frontend; npm install; npm run dev
 
-# Backend tests (spins up MySQL via Testcontainers — needs Docker running)
-cd backend; .\mvnw.cmd test
+# Backend tests (spins up MySQL via Testcontainers — needs Docker running).
+# Always `clean`: on this OneDrive checkout incremental compiles can lose classes.
+cd backend; .\mvnw.cmd clean test
 
 # Frontend unit tests
 cd frontend; npm test

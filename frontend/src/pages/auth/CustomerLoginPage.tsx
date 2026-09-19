@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCustomerLogin } from '../../api/useAuth'
 import { ErrorBanner } from '../../components/States'
+import { FictionalFundsNote } from '../../components/FictionalFundsNote'
 
 export function CustomerLoginPage() {
   const [username, setUsername] = useState('')
@@ -48,6 +49,7 @@ export function CustomerLoginPage() {
             Administrator login
           </Link>
         </div>
+        <FictionalFundsNote />
       </div>
     </div>
   )

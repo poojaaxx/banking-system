@@ -66,14 +66,24 @@ app:
     login-per-minute: ${RATE_LIMIT_LOGIN_PER_MINUTE:10}
     register-per-hour: ${RATE_LIMIT_REGISTER_PER_HOUR:20}
     recovery-per-hour: ${RATE_LIMIT_RECOVERY_PER_HOUR:10}
+    ai-per-minute: ${RATE_LIMIT_AI_PER_MINUTE:10}
   trust-proxy-headers: ${TRUST_PROXY_HEADERS:false}
   ai:
-    # AI features are entirely optional -- leave blank to run without them.
+    # AI features are entirely optional -- leave the key blank to run without them.
     # Free Groq API key: https://console.groq.com (no credit card required).
+    # Limits below sit under Groq's free plan for openai/gpt-oss-20b (verified 2026-09-19).
     groq-api-key: ${GROQ_API_KEY:}
-    groq-model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+    groq-endpoint: ${GROQ_ENDPOINT:https://api.groq.com/openai/v1/chat/completions}
+    groq-model: ${GROQ_MODEL:openai/gpt-oss-20b}
+    reasoning-effort: ${GROQ_REASONING_EFFORT:low}
+    max-completion-tokens: ${AI_MAX_COMPLETION_TOKENS:600}
     timeout-ms: ${AI_TIMEOUT_MS:8000}
     failure-cooldown-seconds: ${AI_FAILURE_COOLDOWN_SECONDS:120}
+    include-descriptions: ${AI_INCLUDE_DESCRIPTIONS:true}
+    max-calls-per-minute: ${AI_MAX_CALLS_PER_MINUTE:20}
+    max-calls-per-day: ${AI_MAX_CALLS_PER_DAY:800}
+    max-estimated-tokens-per-minute: ${AI_MAX_TOKENS_PER_MINUTE:6000}
+    max-estimated-tokens-per-day: ${AI_MAX_TOKENS_PER_DAY:150000}
 
 ---
 # Local dev without Docker: `mvnw spring-boot:run` against a MySQL you run yourself

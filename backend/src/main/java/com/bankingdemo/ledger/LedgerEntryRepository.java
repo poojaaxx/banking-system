@@ -146,4 +146,67 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
             @Param("customerId") Long customerId,
             @Param("since") Instant since,
             Pageable pageable);
+
+    /**
+     * Customer spending in [fromDate, toDate), newest first. When beforeTransactionId is given, only
+     * transactions with a smaller id count -- used to build baselines from information that existed
+     * before a given transaction. Same "spending" definition as the budget queries above.
+     */
+    @Query("""
+            select new com.bankingdemo.ledger.SpendingFact(
+                f.id, f.reference, f.type, e.amount, e.createdAt, f.destinationAccountId, e.categoryId, f.description)
+            from LedgerEntry e, FinancialTransaction f, Account own, Account dst
+            where e.financialTransactionId = f.id
+              and e.accountId = own.id
+              and f.destinationAccountId = dst.id
+              and own.ownerCustomerId = :customerId
+              and e.direction = 'DEBIT'
+              and e.createdAt >= :fromDate
+              and e.createdAt < :toDate
+              and (:beforeTransactionId is null or f.id < :beforeTransactionId)
+              and (f.type <> 'TRANSFER' or own.ownerCustomerId <> dst.ownerCustomerId)
+            order by e.createdAt desc, e.id desc
+            """)
+    List<SpendingFact> spendingBetween(
+            @Param("customerId") Long customerId,
+            @Param("fromDate") Instant fromDate,
+            @Param("toDate") Instant toDate,
+            @Param("beforeTransactionId") Long beforeTransactionId,
+            Pageable pageable);
+
+    @Query("""
+            select new com.bankingdemo.ledger.RefundFact(f.id, e.amount, e.createdAt)
+            from LedgerEntry e, FinancialTransaction f, Account own, Account src
+            where e.financialTransactionId = f.id
+              and e.accountId = own.id
+              and f.sourceAccountId = src.id
+              and own.ownerCustomerId = :customerId
+              and e.direction = 'CREDIT'
+              and f.type = 'TRANSFER'
+              and src.ownerCustomerId is not null
+              and src.ownerCustomerId <> own.ownerCustomerId
+              and (lower(f.description) like '%refund%' or lower(f.description) like '%reversal%')
+              and e.createdAt >= :fromDate
+              and e.createdAt < :toDate
+            order by e.createdAt asc
+            """)
+    List<RefundFact> refundsBetween(
+            @Param("customerId") Long customerId,
+            @Param("fromDate") Instant fromDate,
+            @Param("toDate") Instant toDate);
+
+    @Query("""
+            select new com.bankingdemo.ledger.GoalFlowFact(e.createdAt, e.direction, e.amount)
+            from LedgerEntry e, FinancialTransaction f
+            where e.financialTransactionId = f.id
+              and e.accountId = :accountId
+              and f.type = 'TRANSFER'
+              and e.createdAt >= :fromDate
+              and e.createdAt < :toDate
+            order by e.createdAt asc
+            """)
+    List<GoalFlowFact> transferFlowsForAccount(
+            @Param("accountId") Long accountId,
+            @Param("fromDate") Instant fromDate,
+            @Param("toDate") Instant toDate);
 }

@@ -3,8 +3,14 @@ import path from 'node:path';
 
 const BASE = 'http://localhost:8080';
 const shotDir = path.join(process.cwd(), 'demo-shots');
-const ADMIN_USERNAME = 'admin';
-const ADMIN_PASSWORD = 'admin-demo-password-123';
+// The admin of the stack under test; never hard-code it. Example (PowerShell):
+//   $env:DEMO_ADMIN_PASSWORD = "<the stack's ADMIN_BOOTSTRAP_PASSWORD>"; node final-demo.mjs
+const ADMIN_USERNAME = process.env.DEMO_ADMIN_USERNAME ?? 'admin';
+const ADMIN_PASSWORD = process.env.DEMO_ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  console.error('Set DEMO_ADMIN_PASSWORD to the ADMIN_BOOTSTRAP_PASSWORD of the running stack.');
+  process.exit(2);
+}
 
 function uniq() { return Math.random().toString(36).slice(2, 10); }
 function log(step, msg) { console.log(`[Step ${step}] ${msg}`); }

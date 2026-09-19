@@ -83,10 +83,23 @@ export interface CategorySuggestion {
   confidence: number | null
 }
 
+export type AssistantFallbackReason = 'NONE' | 'AI_NOT_AVAILABLE' | 'AI_ANSWER_REJECTED' | 'AI_ERROR'
+
+export interface VerifiedTransaction {
+  reference: string
+  amount: string
+  date: string
+  description: string | null
+  category: string | null
+}
+
 export interface AssistantAskResponse {
   answer: string
   relatedTransactionReferences: string[]
   aiGenerated: boolean
+  fallbackReason: AssistantFallbackReason
+  verifiedFigures: { asOfDate: string; spentThisMonth: string; spentLastMonth: string; currency: string } | null
+  relatedTransactions: VerifiedTransaction[]
 }
 
 export interface AiStatus {
@@ -288,4 +301,99 @@ export interface AdminDashboardSummary {
   totalTransactions: number
   openSupportTickets: number
   unacknowledgedAlerts: number
+}
+
+// --- Insights (all figures computed by the backend; nothing here is model-generated) ---
+
+export interface UnusualActivity {
+  id: number
+  ruleCode: string
+  label: string
+  explanation: string
+  transactionReference: string | null
+  createdAt: string
+}
+
+export interface InsightsCategoryAmount {
+  categoryId: number
+  name: string
+  amount: string
+}
+
+export interface InsightsObserved {
+  monthStart: string
+  daysElapsed: number
+  daysInMonth: number
+  paymentCount: number
+  grossSpent: string
+  refundsNetted: string
+  netSpent: string
+  byCategory: InsightsCategoryAmount[]
+  uncategorized: string
+}
+
+export interface InsightsProjection {
+  status: 'OK' | 'INSUFFICIENT_HISTORY'
+  reason: string | null
+  projectedMonthEnd: string | null
+  rangeLow: string | null
+  rangeHigh: string | null
+  basis: {
+    windowStart: string
+    windowDays: number
+    paymentsInWindow: number
+    dailyRate: string
+    weeklyMedianDailyRate: string | null
+    largestPaymentCap: string | null
+    cappedOneOffs: boolean
+    remainingDaysInMonth: string
+  } | null
+  assumptions: string[]
+}
+
+export type BudgetEstimateStatus = 'ALREADY_OVER' | 'PROJECTED_OVER' | 'POSSIBLY_OVER' | 'ON_TRACK' | 'INSUFFICIENT_HISTORY'
+
+export interface InsightsBudgetEstimate {
+  categoryId: number
+  category: string
+  limit: string
+  spent: string
+  status: BudgetEstimateStatus
+  projectedMonthEnd: string | null
+  estimatedOverrun: string | null
+  reason: string | null
+}
+
+export type GoalProjectionStatus = 'OK' | 'COMPLETED' | 'INSUFFICIENT_HISTORY' | 'NO_POSITIVE_TREND'
+
+export interface InsightsGoal {
+  goalId: number
+  name: string
+  goalStatus: string
+  target: string
+  saved: string
+  remaining: string
+  percentComplete: string
+  targetDate: string | null
+  requiredMonthlyForTargetDate: string | null
+  projection: {
+    status: GoalProjectionStatus
+    reason: string | null
+    averageMonthlyContribution: string | null
+    completeMonthsUsed: number
+    estimatedCompletionMonth: string | null
+    onPaceForTargetDate: boolean | null
+    assumptions: string[]
+  }
+}
+
+export interface Insights {
+  generatedAt: string
+  asOfDate: string
+  currency: string
+  observed: InsightsObserved
+  projection: InsightsProjection
+  budgets: InsightsBudgetEstimate[]
+  goals: InsightsGoal[]
+  methodology: string[]
 }

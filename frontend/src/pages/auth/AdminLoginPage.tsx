@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdminLogin } from '../../api/useAuth'
 import { ErrorBanner } from '../../components/States'
+import { FictionalFundsNote } from '../../components/FictionalFundsNote'
 
 export function AdminLoginPage() {
   const [username, setUsername] = useState('')
@@ -41,6 +42,7 @@ export function AdminLoginPage() {
             {login.isPending ? 'Logging in…' : 'Log in'}
           </button>
         </form>
+        <FictionalFundsNote />
       </div>
     </div>
   )

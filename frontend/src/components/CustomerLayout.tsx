@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useLogout, useSession } from '../api/useAuth'
 import { useUnreadCount } from '../api/useNotifications'
 import { useEventStream } from '../api/useEventStream'
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard' },
+  { to: '/insights', label: 'Insights' },
   { to: '/assistant', label: 'Assistant' },
   { to: '/accounts', label: 'Accounts' },
   { to: '/transfer', label: 'Transfer' },
@@ -72,6 +73,9 @@ export function CustomerLayout() {
         </nav>
         <main className="app-main" id="main-content">
           <Outlet />
+          <p className="fine-print" style={{ marginTop: 24 }}>
+            Fictional funds only · <Link to="/about">About SecureBank</Link>
+          </p>
         </main>
       </div>
     </div>

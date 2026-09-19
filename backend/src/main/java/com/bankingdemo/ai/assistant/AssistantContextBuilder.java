@@ -2,6 +2,7 @@ package com.bankingdemo.ai.assistant;
 
 import com.bankingdemo.account.Account;
 import com.bankingdemo.account.AccountRepository;
+import com.bankingdemo.ai.AiProperties;
 import com.bankingdemo.ledger.CategorySpendingRow;
 import com.bankingdemo.ledger.LedgerEntryRepository;
 import com.bankingdemo.ledger.SpendingCategory;
@@ -29,13 +30,16 @@ public class AssistantContextBuilder {
     private final AccountRepository accountRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final SpendingCategoryRepository spendingCategoryRepository;
+    private final AiProperties aiProperties;
 
     public AssistantContextBuilder(AccountRepository accountRepository,
                                     LedgerEntryRepository ledgerEntryRepository,
-                                    SpendingCategoryRepository spendingCategoryRepository) {
+                                    SpendingCategoryRepository spendingCategoryRepository,
+                                    AiProperties aiProperties) {
         this.accountRepository = accountRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
         this.spendingCategoryRepository = spendingCategoryRepository;
+        this.aiProperties = aiProperties;
     }
 
     public AssistantContext build(Long customerId) {
@@ -87,7 +91,8 @@ public class AssistantContextBuilder {
     private AssistantContext.TransactionFact toFact(TransactionHistoryRow row, Map<Long, String> categoryNames) {
         String category = row.categoryId() == null ? "Uncategorized" : categoryNames.getOrDefault(row.categoryId(), "Uncategorized");
         return new AssistantContext.TransactionFact(
-                row.reference(), money(row.amount()), category, truncate(row.description()), row.createdAt().toString());
+                row.reference(), money(row.amount()), category,
+                aiProperties.isIncludeDescriptions() ? truncate(row.description()) : "", row.createdAt().toString());
     }
 
     private static String truncate(String description) {

@@ -133,6 +133,62 @@ class AssistantServiceIntegrationTest {
         assertThat(response.answer()).isNotBlank();
     }
 
+    @Test
+    void aModelAnswerWithAnInventedAmountIsRejectedAndTheCalculatedAnswerIsUsedInstead() {
+        FakeAiChatClient fake = (FakeAiChatClient) aiChatClient;
+        fake.setAvailable(true);
+        fake.respondWith("{\"answer\": \"You spent ₹9,999.00 this month.\", \"referencedReferences\": []}");
+
+        AssistantAskResponse response = assistantService.ask(customerAId, "How much did I spend this month?");
+
+        assertThat(response.aiGenerated()).isFalse();
+        assertThat(response.fallbackReason()).isEqualTo(AssistantAskResponse.FallbackReason.AI_ANSWER_REJECTED);
+        assertThat(response.answer()).contains("1500.00").doesNotContain("9,999");
+    }
+
+    @Test
+    void aVerifiedModelAnswerIsUsedButTheFiguresShownComeFromBackendFields() {
+        FakeAiChatClient fake = (FakeAiChatClient) aiChatClient;
+        fake.setAvailable(true);
+        fake.respondWith("{\"answer\": \"So far this month you spent ₹1500.00 in total.\", \"referencedReferences\": [\"" + referenceOwnedByA + "\"]}");
+
+        AssistantAskResponse response = assistantService.ask(customerAId, "How much did I spend this month?");
+
+        assertThat(response.aiGenerated()).isTrue();
+        assertThat(response.fallbackReason()).isEqualTo(AssistantAskResponse.FallbackReason.NONE);
+        assertThat(response.verifiedFigures().spentThisMonth()).isEqualTo("1500.00");
+        assertThat(response.verifiedFigures().currency()).isEqualTo("INR");
+        assertThat(response.relatedTransactions()).hasSize(1);
+        assertThat(response.relatedTransactions().get(0).reference()).isEqualTo(referenceOwnedByA);
+        assertThat(response.relatedTransactions().get(0).amount()).isEqualTo("1500.00");
+        assertThat(response.relatedTransactions().get(0).description()).isEqualTo("Rent payment");
+    }
+
+    @Test
+    void anOutageIsLabeledAsSuchAndStillCarriesTrustedFigures() {
+        ((FakeAiChatClient) aiChatClient).setAvailable(false);
+
+        AssistantAskResponse response = assistantService.ask(customerAId, "Show my largest payments.");
+
+        assertThat(response.aiGenerated()).isFalse();
+        assertThat(response.fallbackReason()).isEqualTo(AssistantAskResponse.FallbackReason.AI_NOT_AVAILABLE);
+        assertThat(response.verifiedFigures().spentThisMonth()).isEqualTo("1500.00");
+        assertThat(response.relatedTransactions()).extracting(AssistantAskResponse.VerifiedTransaction::reference)
+                .contains(referenceOwnedByA);
+    }
+
+    @Test
+    void aModelThatEchoesAnotherCustomersDataInItsAnswerIsRejected() {
+        FakeAiChatClient fake = (FakeAiChatClient) aiChatClient;
+        fake.setAvailable(true);
+        fake.respondWith("{\"answer\": \"Bob also received a salary of ₹9000.00.\", \"referencedReferences\": []}");
+
+        AssistantAskResponse response = assistantService.ask(customerAId, "Tell me about Bob's salary");
+
+        assertThat(response.aiGenerated()).isFalse();
+        assertThat(response.answer()).doesNotContain("9000");
+    }
+
     private static String newKey() {
         return UUID.randomUUID().toString();
     }

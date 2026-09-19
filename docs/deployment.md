@@ -18,6 +18,29 @@ before you provision anything, since free-tier terms change without notice.
 | Aiven MySQL free tier: 1 CPU, 1 GB RAM, 1 GB disk, max_connections=76, single node (no HA) | aiven.io/docs/products/mysql/concepts/mysql-free-tier | 2026-09-18 |
 | Aiven: no credit card required; automated backups included; free forever (not time-boxed) but may be **powered off after a period of inactivity**, with advance email notice | aiven.io/docs/products/mysql/concepts/mysql-free-tier | 2026-09-18 |
 
+**Re-checked 2026-09-19** against the same pages (a day later), reading exactly
+what they state:
+
+- Render (`render.com/docs/free`): 750 free instance hours per calendar month;
+  spin-down after 15 minutes without inbound traffic; cold start "about one
+  minute"; ephemeral filesystem, no persistent disks on free; suspended when
+  hours or bandwidth run out ("If you haven't added a payment method, Render
+  instead suspends all of your Free services"), which implies free services can
+  exist without a payment method; and a plain warning: *"Do not use them for
+  production applications."* That page does **not** explicitly say sign-up never
+  asks for a card, and does not itself mention Docker on the Free type
+  (Docker web services were read on the web-services/docker pages on
+  2026-09-18). Confirm both in the sign-up flow before proceeding, and stop if
+  a card is requested.
+- Aiven (`.../mysql-free-tier`): "You don't need a credit card to sign up and
+  you can use it indefinitely free of charge"; 1 CPU, 1 GB RAM, 1 GB disk,
+  `max_connections=76`; **only one free service of each type per organization**;
+  may be powered off after inactivity (notice sent, can be re-activated); not
+  covered by an SLA. TLS enforcement is **not stated** on that page.
+
+`render.yaml` in the repo root is an optional Render Blueprint (free plan,
+secrets prompted for, none stored). It is unexecuted: it needs your account.
+
 **Not independently confirmed in the fetched docs** (treat as "verify yourself
 before relying on it"): the exact region list for Aiven's free tier, and
 whether Aiven enforces TLS by default on every free service (this has long
@@ -63,7 +86,7 @@ These require your own accounts; nothing here can be done on your behalf.
    database name, user, password, and **Connection information → CA
    certificate**. Download/copy the CA certificate (PEM).
 4. Do not create the application database schema yourself — Flyway does
-   that automatically on first app startup (V1–V8 in
+   that automatically on first app startup (V1–V10 in
    `backend/src/main/resources/db/migration`).
 
 ### 2. Render web service
@@ -93,6 +116,8 @@ These require your own accounts; nothing here can be done on your behalf.
    | `ADMIN_BOOTSTRAP_EMAIL` | your choice (not a real inbox needed) |
    | `ADMIN_BOOTSTRAP_PASSWORD` | strong password, ≥12 chars — set only for first deploy, see below |
    | `TRUST_PROXY_HEADERS` | `true` (Render terminates TLS in front of the app) |
+   | `GROQ_API_KEY` | **Optional.** Leave unset to run without AI (labelled fallback). If you set it, use a free-plan key only; see [ai-features.md](ai-features.md). |
+   | `GROQ_MODEL` | Optional; default `openai/gpt-oss-20b` (`llama-3.3-70b-versatile` was deprecated for free tiers on 2026-08-16) |
 
    `PORT` does not need to be set — Render provides it automatically and
    `server.port: ${PORT:8080}` already reads it.
@@ -114,11 +139,13 @@ Using low-volume fictional test data only (never stress-test someone else's
 free service):
 
 - [ ] `GET /actuator/health` returns `200 {"status":"UP"}`
-- [ ] Flyway ran all 8 migrations (check Render's deploy logs)
+- [ ] Flyway ran all 10 migrations (check Render's deploy logs)
 - [ ] HTTPS is enforced (Render's default `onrender.com` cert)
 - [ ] Register a fictional customer, log out, log back in
 - [ ] Create an account, simulate a deposit, transfer to a second fictional
       customer, confirm both balances and the live SSE update
+- [ ] Open **Insights** as a new customer → "Insufficient history", no invented numbers
+- [ ] Ask the assistant a question with no `GROQ_API_KEY` → labelled "Calculated answer"
 - [ ] Attempt to read another customer's account by id → 403
 - [ ] Log in as the bootstrapped admin, freeze an account, confirm a
       transfer from it is rejected

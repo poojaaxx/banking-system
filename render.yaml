@@ -1,0 +1,45 @@
+# Render Blueprint for SecureBank -- FREE instance type only.
+#
+# STATUS: written from Render's documented Blueprint format but NOT yet executed
+# (it needs your own Render account). See docs/deployment.md for the verified free-tier
+# terms, the one-time Aiven MySQL setup, and the post-deploy checklist.
+#
+# Secrets use `sync: false`: Render asks for each value in the dashboard when the
+# Blueprint is created; none are stored in this repository.
+services:
+  - type: web
+    name: securebank
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    autoDeploy: false
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAME_SITE
+        value: Lax
+      - key: TRUST_PROXY_HEADERS
+        value: "true"
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL_CA_PEM
+        sync: false
+      - key: DB_SSL_TRUSTSTORE_PASSWORD
+        sync: false
+      - key: ADMIN_BOOTSTRAP_USERNAME
+        sync: false
+      - key: ADMIN_BOOTSTRAP_EMAIL
+        sync: false
+      - key: ADMIN_BOOTSTRAP_PASSWORD
+        sync: false

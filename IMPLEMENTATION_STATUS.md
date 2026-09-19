@@ -1,142 +1,87 @@
 # Implementation Status
 
-Legend: `[ ]` not started · `[~]` in progress · `[x] local` verified locally ·
-`[x] CI` verified in CI · `[x] public` verified on deployed instance · `[!]` blocked
+Last updated: 2026-09-19.
 
-Last updated: 2026-09-18 (end of build session).
+Every item says **where** it was verified, because these are different claims:
+
+- **local** — run on the developer machine (Windows, Docker Desktop, real MySQL 8 containers).
+- **CI** — observed passing in GitHub Actions on a named commit.
+- **real Groq** — exercised against the live Groq API with a real key.
+- **public** — exercised on a deployed public instance.
+
+`[x]` done and verified where stated · `[ ]` not done / not verified · `[!]` blocked on an external action.
+
+## Summary of what is and is not verified
+
+| Claim | local | CI | real Groq | public |
+| --- | --- | --- | --- | --- |
+| Core banking (accounts, ledger, idempotency, concurrency, admin) | [x] | see §8 | n/a | [ ] |
+| Unusual-activity checks, Insights, forecasts | [x] | see §8 | n/a | [ ] |
+| Assistant / categorization **with the model unavailable** (labelled fallback) | [x] | see §8 | n/a | [ ] |
+| Assistant / categorization **against a simulated provider** (429, 401, 500, timeout, quota) | [x] | see §8 | n/a | [ ] |
+| Assistant / categorization **against the real Groq API** | n/a | n/a | **[ ] NOT DONE — no `GROQ_API_KEY` available** | [ ] |
+| Deployment on Render + Aiven | n/a | n/a | n/a | **[!] NOT DEPLOYED — needs your accounts** |
 
 ## 0. Foundation
-- [x] local — Root structure, `.gitignore`, `.gitattributes` (forces LF for `*.sh`), `.env.example`, `CLAUDE.md`, this file, `README.md`
-- [x] local — Git repo on `feature/initial-build`, no remote (none authorized/created)
-- [x] local — `Dockerfile` (multi-stage), `docker-compose.yml`, `.dockerignore`
-- [x] local — `.github/workflows/ci.yml` (backend tests, frontend build/tests, packaged E2E) — **not yet observed running** (no remote/push)
+- [x] local — Root structure, `.gitignore`, `.gitattributes`, `.env.example`, `CLAUDE.md`, `README.md`, this file.
+- [x] Git: remote `https://github.com/poojaaxx/banking-system`; work is on `feature/initial-build`. **Correction to record:** `main` was fast-forwarded once, at the owner's request, to commit `f27aa4c`; it has not been touched since, and release work is pushed to `feature/initial-build` only.
+- [x] local — `Dockerfile` (multi-stage), `docker-compose.yml`, `.dockerignore`, optional `render.yaml` (unexecuted).
 
-## 1. Database & Money Design
-- [x] local — Flyway V1–V8: customers/admins/accounts (+ seeded SYSTEM_CASH/SYSTEM_BILLPAY), spending_categories, ledger (financial_transactions + ledger_entries, DB-enforced one-debit-one-credit), idempotency_keys, beneficiaries/notifications/recovery_codes, support, audit_log/alert_rules/account_alerts, billers/bill_payments/budgets/savings_goals/money_requests
-- [x] local — All 8 migrations verified against real MySQL 8.0 multiple times (disposable containers, Testcontainers, docker-compose)
+## 1. Database
+- [x] local — Flyway `V1`–`V10`, all applied to real MySQL 8 (Testcontainers, docker-compose, and `V10` on top of a populated database). `V9`: category-change audit. `V10`: `dedupe_key` + two unusual-activity rules.
+- Ledger invariants unchanged: append-only, balanced double-entry, DB-backed idempotency, pessimistic ascending-id locking. One documented exception: `ledger_entries.category_id` is non-financial metadata, changeable by its owner and audited (see `CLAUDE.md`).
 
-## 2. Backend (Spring Boot 4.1.1 / Java 17 / Spring Security 7.1.1 / Hibernate 7.4.5)
-- [x] local — Security: distinct CustomerPrincipal/AdminPrincipal types, cookie CSRF (SPA pattern), session-fixation protection, SessionRegistry-backed session invalidation on password change, JSON 401/403, security headers, bounded rate limiting, proxy-aware IP resolution
-- [x] local — Admin bootstrap via env vars only (race-safe via unique constraint)
-- [x] local — Ledger engine: DB-constraint-based idempotency (not in-memory), ascending-id pessimistic locking, one transaction per movement, notification-on-transfer
-- [x] local — Full customer API: accounts, deposit/withdraw/transfer, transaction history (filtered/paginated) + CSV export (formula-injection-safe) + print, beneficiaries, notifications, SSE stream, dashboard aggregate, support tickets, money requests, bill pay, budgets, savings goals
-- [x] local — Full admin API: dashboard aggregates (SAVINGS-only), customer/account inspection, freeze/unfreeze (audited), transaction inspection, support responses, alert list/acknowledge (audited), audit log
-- [x] local — Rule-based alerts (LARGE_TRANSACTION, RAPID_TRANSFERS, REPEATED_FAILED_LOGIN) — explicitly not framed as fraud detection
-- [x] local — SpaWebConfig serves the built frontend + correct static/API/SPA-route separation
+## 2. Backend (Spring Boot 4.1.1 / Java 17 / Security 7.1.1 / Hibernate 7.4.5)
+- [x] local — Security, admin bootstrap, ledger engine, full customer and admin APIs (see earlier sections of the README/architecture doc).
+- [x] local — **API error contract** (this release): unknown routes → `404` JSON; existing route with the wrong method → `405` with `Allow`; malformed JSON / missing header / bad parameter → `400`; unsupported content type → `415`; authentication, authorization and CSRF are enforced *before* routing; no API response is SPA HTML or an accidental `500`. Verified by `api-errors.spec.ts` (8 tests) against the packaged image.
+- [x] local — **Unusual-activity checks** extending the existing alerts module (`UNUSUAL_LARGE_SPEND`, `REPEATED_PAYMENT`): customer-specific, baselines from earlier data only, deduplicated (`INSERT IGNORE`), delivered as a notification through the existing SSE path to the owning customer only, labelled as statistical checks/rules (never "AI fraud detection"), never freeze/block/move money, and unable to fail a transfer. Method and thresholds: [docs/insights.md](docs/insights.md).
+- [x] local — **Insights**: observed month-to-date spending, month-end projection, budget-overrun estimates, savings-goal progress/estimates, all computed in backend code (`SpendingForecaster`, `GoalProjector`, `SpendingStatistics`), own-account transfers and simulated deposits excluded, refunds netted, "Insufficient history" gates, no confidence percentages.
+- [x] local — **Groq integration hardened** ([docs/ai-features.md](docs/ai-features.md)): optional; model-output verification (amounts, dates, totals, references, links); trusted facts rendered from backend fields; bounded (timeouts, token caps, local calls/tokens quota under the free plan's limits, per-customer rate limit); `429` honors `Retry-After`; auth failure cooldown; privacy-safe logging (asserted by a test); default model corrected to `openai/gpt-oss-20b` because Groq deprecated the Llama models for free tiers on 2026-08-16.
 
-## 3. Frontend (React 19 + TypeScript + Vite + React Router + TanStack Query)
-- [x] local — Full route set for both roles (see README/CLAUDE.md), design system in plain CSS (light/dark), accessible forms, responsive nav, print stylesheet
-- [x] local — Idempotent financial UX (`usePendingOperation`): persists only the idempotency key across refresh; ambiguous outcomes reuse the same key; clean rejections mint a fresh one
-- [x] local — SSE wiring (`useEventStream`) invalidates TanStack Query caches only — never a direct state source
+## 3. Frontend (React 19 + TypeScript + Vite + React Router 7 + TanStack Query 5)
+- [x] local — All customer/admin pages; SecureBank branding; discreet fictional-funds note (login, register, admin login, footer, `/about`) with no large banners.
+- [x] local — **Insights page**: observed vs projected in separate labelled sections, assumptions and basis, "Insufficient history" states, budget estimates, goal progress with estimates only when supported; unusual-activity list refreshes live over SSE.
+- [x] local — Assistant page: "AI answer · checked against your records" vs "Calculated answer" with the reason for any fallback; figures and transactions shown from backend fields.
 
-## 4. Testing
-- [x] local — Backend: 16/16 tests pass against real MySQL 8.0 via Testcontainers, run just before this update:
-  - `BankingBackendApplicationTests` (1) — context loads
-  - `LedgerServiceIntegrationTest` (11) — zero-start balances, balanced double-entry, idempotent replay, reused-key-different-payload rejection, insufficient-funds/frozen-account rejection with balance unchanged, concurrent overdraft race (5 threads, exactly 1 succeeds), concurrent duplicate-idempotency-key race, opposite-direction transfers without deadlock, freeze-during-concurrent-transfers consistency, mid-transaction FK-violation rollback with retry
-  - `RecoveryServiceIntegrationTest` (4) — regenerate issues 10 active codes, valid redemption consumes permanently, wrong code rejected without consuming a real one, regenerate invalidates all prior codes
-- [x] local — Frontend: 24/24 Vitest + RTL tests pass (`npm test`); `npm run build` (tsc -b + vite build) clean
-- [x] local — E2E: 9/9 Playwright tests pass against the **packaged Docker image** with real MySQL (`PLAYWRIGHT_BASE_URL=http://localhost:8080 E2E_TARGET=packaged`): core transfer + live SSE update across two browser contexts, excessive-withdrawal rejection, concurrent-duplicate-idempotency-key safety with real CSRF, ownership denial (cross-customer and cross-role), unauthenticated deep-link redirect, hard-refresh session preservation, missing-static-asset 404 (not index.html), API errors never return HTML
-- [ ] CI — workflow exists but has never actually run (no remote/push authorized yet)
+## 4. Testing (all counts observed, not assumed)
+- [x] local — **Backend: 110/110** (`mvnw clean test`, real MySQL 8 via Testcontainers), run from a clean build in a copy outside OneDrive. Includes: ledger concurrency/idempotency (11), recovery codes (4), assistant (9), categorization (5 + 7), answer validator (10), Groq client failure modes (11), unusual activity (11), insights (12), statistics (7), forecaster (13), goal projector (8), synthetic held-out evaluation (1), context load (1).
+- [x] local — **Frontend: 38/38** Vitest + RTL; `npm run build` clean.
+- [x] local — **Packaged-browser E2E: 23/23** Playwright (Chromium) against the packaged Docker image with real MySQL: core transfer with live SSE update across two browser contexts, duplicate-submission safety, ownership denial, SPA/static routing, the API error contract, cold start ("Insufficient history"), unusual-activity delivery live over SSE to only the owner with nothing blocked, duplicate-alert suppression, labelled AI fallback with no key, discreet disclosure.
+- [x] local — 10-step final demonstration script (`e2e/final-demo.mjs`, steps 1–9) and step 10 (restart: identical database state, admin re-login works, stale session rejected) re-run against this release's image on 2026-09-19.
+- [x] local — Synthetic held-out forecast evaluation: [docs/insights.md](docs/insights.md#evaluation-on-chronological-held-out-fixtures-synthetic). **Synthetic results only — not real-user accuracy; there are no real users.**
 
-## 5. Packaging & Local Running
-- [x] local — `docker compose up --build` verified end-to-end multiple times, including from a completely empty volume (Flyway runs all 8 migrations, admin bootstraps, health check passes)
-- [x] local — Multi-stage build confirmed: frontend built once, embedded on the backend's classpath, single JRE-alpine runtime image, non-root user, healthcheck, conservative JVM flags (`-XX:MaxRAMPercentage=70`) and HikariCP pool (`max=5` by default)
-- [x] local — `scripts/docker-entrypoint.sh` (builds a hosted-MySQL TLS truststore from `DB_SSL_CA_PEM` at container start) verified directly inside the runtime image with a real self-signed test certificate
+## 5. Packaging & local running
+- [x] local — `docker compose up --build` (verified repeatedly, including a `V10` upgrade of an existing database). Compose now passes `RATE_LIMIT_*` through (previously documented but silently ignored) and the AI variables.
 
 ## 6. Deployment
-- [x] local (research only) — `docs/deployment.md`: Render free web service + Aiven MySQL free tier, every claim checked against each provider's own current docs on 2026-09-18 (dated, with sources), including sleep/cold-start behavior, ephemeral filesystem, instance-hour limits, Aiven's inactivity power-off policy, and the exact environment variables to set
-- [ ] public — **Not deployed.** No remote repository exists and none has been created (requires the user's explicit authorization and their own GitHub/Render/Aiven account actions). No live URL exists; none is claimed.
+- [x] local (research) — Free-tier terms re-read from Render's and Aiven's own pages on 2026-09-19 ([docs/deployment.md](docs/deployment.md)), including what those pages do **not** state (Render's page does not say sign-up never asks for a card; Aiven's does not state TLS enforcement).
+- [!] public — **Not deployed.** Creating a Render web service and an Aiven MySQL service requires signing in to those providers with your own accounts, and confirming in their sign-up flows that no card is requested. That cannot be done on your behalf. `render.yaml` + `docs/deployment.md` make it a short manual procedure. No public URL exists and none is claimed.
 
-## 7. Backup & Restore
-- [x] local — `scripts/backup.sh` / `scripts/restore.sh` (GPG-encrypted, disposable-target-only guardrail) — **actually run**, not just written: backed up a live compose database (19→ then, after a later reset, a fresh 2-customer dataset), restored into a separate disposable MySQL container, confirmed identical row counts and ledger reconciliation, confirmed the Flyway history, then built and ran the real application jar against the restored database and logged in over HTTP as the fictional test customer. Full record in `docs/backup-restore.md`.
+## 7. Backup & restore
+- [x] local — `scripts/backup.sh` / `restore.sh` were executed end to end at schema `V8` (see `docs/backup-restore.md`). Not re-run at `V10`; the procedure is unchanged, but that specific run is not repeated here.
 
-## 8. Final Demonstration (spec's exact 10-step script)
+## 8. CI
+- CI is defined in `.github/workflows/ci.yml` and runs on pushes to `feature/**` and `main`. The outcome for the release commit is recorded in the follow-up commit after it has been observed; do not treat this section as a CI result until it names a commit and a run.
 
-Run against the **packaged Docker image**, real MySQL, from a fresh empty
-volume, on 2026-09-18. All 10 steps executed and verified (not assumed):
+## What went wrong along the way (kept for honesty)
 
-1. **[x]** Registered Alice and Bob as two fictional customers in separate browser contexts (Playwright, two independent `BrowserContext`s = two independent sessions/cookie jars).
-2. **[x]** Created one account each (Alice `593046079566`, Bob `284499791424`).
-3. **[x]** Simulated deposit: ₹10,000 to Alice, ₹2,000 to Bob.
-4. **[x]** Transferred ₹3,000 from Alice to Bob; reference `TXN-49728048-3de0-4546-aa0b-a2d3a2295cf1`.
-5. **[x]** Verified Alice=₹7,000.00, Bob=₹5,000.00, matching reference on the receipt, and Bob's dashboard updated **live** (SSE push → TanStack Query invalidation) with no manual refresh — screenshot evidence captured.
-6. **[x]** Confirmed the idempotency/duplicate-submission guarantee: a genuinely new UI submission with the same parameters is correctly treated as a new transfer (money moves again, ₹7,000→₹4,000), while true retry-with-the-same-key safety (no double-move) is separately, explicitly proven under concurrency in `e2e/tests/duplicate-submission.spec.ts` (3 concurrent requests, same key, exactly 1 succeeds).
-7. **[x]** Rejected an excessive withdrawal (₹999,999 from Bob's ₹5,000.00 account); balance unchanged.
-8. **[x]** Admin froze Bob's account with a required reason; a subsequent transfer attempt from that account was blocked with a "frozen" error. Unfrozen afterward to leave a clean end state.
-9. **[x]** Completed a support-ticket conversation: customer opened a ticket, admin responded and marked it RESOLVED, customer saw the reply.
-10. **[x]** Restarted the app container (`docker compose restart app`); verified in MySQL directly that customers/accounts/balances/transaction counts were unchanged (₹4,000.00 / ₹8,000.00, 2 customers, 4 transactions), and verified **successful reauthentication** for both Alice (customer) and the bootstrapped admin using their original credentials — sessions were cleared by the restart (expected, documented behavior) but no banking data was lost.
+Earlier build (unchanged): admin login broken by `@Primary` bean resolution (caught by the demonstration, fixed with explicit `@Qualifier`); OneDrive/incremental-compile quirk losing classes in `target/`; missing static asset returned `500`.
 
-**A real bug was found and fixed during this run:** step 8 initially failed
-because admin login was silently broken — see the "what went wrong" section
-below. This is exactly why the full demonstration script matters more than
-unit tests alone.
+This release:
+- **Stale default model.** Phase 1 shipped `llama-3.3-70b-versatile`, which Groq deprecated for free tiers on 2026-08-16. Found while re-verifying the free plan; default changed, and the same stale value was also pinned in `docker-compose.yml`, `.env.example` and a local `.env`, which would have silently overridden the code default.
+- **Invented numbers in Phase 1.** Rule-based categorization returned a hard-coded `confidence: 0.7`; removed (no confidence is exposed).
+- **Forecast gate too lenient.** The first version (≥ 5 payments) still forecast a sparse profile with 52–80% error in held-out testing; gates tightened to 10 payments and 25% active days. A second finding: the outlier cap flattened a regular heavy fortnight; the cap now applies only when at most 10% of payments exceed the fence.
+- **Unsupported methods returned `500`.** `GET /api/customer/deposits` failed with a `500` and no `Allow` header; fixed and covered.
+- **Documented but ignored settings.** `RATE_LIMIT_*` in `.env.example` were never passed by `docker-compose.yml`; the e2e suite tripped the (working) registration limiter. Fixed; CI raises the limit for its throwaway stack only.
+- **A faulty scripted edit corrupted `docker-compose.yml`** (my search matched the wrong service). The file was clean in git, so it was restored and re-edited precisely.
+- **The OneDrive build directory was clobbered mid-run** (51 errors of `ClassNotFoundException`, including pure unit tests). The same tests had passed class-by-class; the trustworthy 110/110 comes from a clean build outside OneDrive.
+- **A hard-coded local admin password** (`admin-demo-password-123`) was committed in `e2e/final-demo.mjs` in `94f8418` and is therefore in the public history. The script now reads it from the environment. History was not rewritten. Do not reuse that password anywhere real; it was only ever the local demo admin.
 
-## What went wrong along the way (kept for honesty, not swept under the rug)
-
-- **Admin login silently broken by `@Primary` bean resolution.** An earlier
-  fix for a startup crash ("Found 2 beans for type AuthenticationManager,
-  none marked as primary") marked `customerAuthenticationManager` `@Primary`.
-  Spring's bean resolution gives `@Primary` priority over parameter-name
-  autowiring, so `AdminAuthController`'s `adminAuthenticationManager`
-  constructor parameter was actually wired with the **customer** manager —
-  admin login was checking the `customers` table and always failing with a
-  generic "Authentication required", never a clearer error. Found via the
-  final demonstration's admin-freeze step, root-caused via MySQL's general
-  query log (showed `select ... from customers ... where username='admin'`),
-  fixed with explicit `@Qualifier` annotations on both auth controllers.
-  Fixed, verified, and committed.
-- **Local Maven incremental-compilation quirk** (this environment only): on
-  this OneDrive-synced Windows checkout, `spring-boot:run` occasionally
-  picked up a `target/classes` missing specific compiled classes (including,
-  once, the main class itself) even though `mvn clean compile` had just
-  succeeded. Workaround: always `mvn clean compile`/`clean package`
-  immediately before running locally. **Does not affect the Docker build**,
-  which compiles from a clean checkout inside the image every time — every
-  packaged-image test and the final demonstration itself ran against jars
-  built this way.
-- **`NoResourceFoundException` → 500 instead of 404.** Spring's own
-  "resource not found" signal for a missing static asset was being caught by
-  the generic `Exception` handler and turned into a 500. Fixed by adding a
-  dedicated `@ExceptionHandler(NoResourceFoundException.class)` returning a
-  real 404 — caught by the packaged-image Playwright suite, not a unit test.
-- Two earlier `NoClassDefFoundError` incidents for lazily-loaded nested
-  record classes (`LedgerService$TransferFingerprint`) during local dev were
-  the same Maven incremental-compilation issue above, not application bugs
-  — confirmed by the fact a clean rebuild always resolved them and the
-  Docker build never exhibited it.
-
-## Known blockers / external actions required
-
-- **Deployment**: requires the user's own GitHub, Render, and Aiven accounts
-  and explicit authorization to push a remote — see `docs/deployment.md` for
-  the exact steps and environment variables once that's ready.
-- **CI**: will only be "verified in CI" once pushed to a real remote and a
-  workflow run has actually been observed on that exact commit.
+## Known blockers / external actions
+- **Real Groq verification:** set `GROQ_API_KEY` (free key, no card) and run `node scripts/ai-smoke.mjs --require`; then use the assistant in the app.
+- **Public deployment:** your own Render and Aiven sign-ups (see `docs/deployment.md`).
 
 ## Notable environment-driven adaptations
-
-This session's actual toolchain resolved newer major versions than
-typically assumed when this build started; the implementation was adapted
-accordingly, verified by successful builds/tests rather than assumed:
-
-- Spring Boot 4.1.1 uses fine-grained starters (e.g.
-  `spring-boot-starter-webmvc` instead of `-web`, per-starter `-test`
-  artifacts instead of one `spring-boot-starter-test`).
-- Jackson 3 (`tools.jackson.databind.ObjectMapper`), not Jackson 2
-  (`com.fasterxml.jackson.databind`) — annotations
-  (`com.fasterxml.jackson.annotation.*`) did not move.
-- Spring Security 7.1.1: `DaoAuthenticationProvider` takes a
-  `UserDetailsService` in its constructor (no longer a no-arg constructor +
-  setter) — and, per the bug write-up above, its interaction with `@Primary`
-  when multiple `AuthenticationManager` beans exist is unforgiving of
-  parameter-name-only disambiguation.
-- Hibernate 7.4.5 / Jakarta Persistence 3.2.
-
-## Notes on scope choices
-
-- Firefox/WebKit/mobile-viewport Playwright projects are defined in
-  `e2e/playwright.config.ts` but commented out (Chromium runs by default,
-  per the "run Chromium automatically, make others reproducible" guidance).
-- Rate limiting and the three alert rules are intentionally process-local,
-  in-memory, and documented as such — appropriate for this single-instance
-  demo, not presented as a durable multi-instance guarantee.
+- Spring Boot 4.1.1 fine-grained starters; Jackson 3 (`tools.jackson.databind`); Spring Security 7's `DaoAuthenticationProvider` constructor; Hibernate 7.4.5 / Jakarta Persistence 3.2.
+- Firefox/WebKit/mobile Playwright projects are defined but commented out (Chromium runs).
+- Rate limiting, the AI quota guard, and the failed-login counter are process-local and reset on restart.

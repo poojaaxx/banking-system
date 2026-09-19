@@ -26,6 +26,7 @@ export function useEventStream(enabled: boolean) {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['money-requests'] })
       queryClient.invalidateQueries({ queryKey: ['savings-goals'] })
+      queryClient.invalidateQueries({ queryKey: ['insights'] })
     }
 
     const source = new EventSource('/api/events/stream')

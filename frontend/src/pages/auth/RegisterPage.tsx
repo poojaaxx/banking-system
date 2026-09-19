@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCustomerRegister } from '../../api/useAuth'
 import { ErrorBanner } from '../../components/States'
+import { FictionalFundsNote } from '../../components/FictionalFundsNote'
 
 export function RegisterPage() {
   const [fullName, setFullName] = useState('')
@@ -79,6 +80,7 @@ export function RegisterPage() {
         <div className="stack" style={{ marginTop: 16 }}>
           <Link to="/login">Already have an account? Log in</Link>
         </div>
+        <FictionalFundsNote />
       </div>
     </div>
   )

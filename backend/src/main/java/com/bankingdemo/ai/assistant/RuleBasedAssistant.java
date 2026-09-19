@@ -51,7 +51,7 @@ public class RuleBasedAssistant {
         if (containsAny(q, "spend", "spent", "spending")) {
             return spendingThisMonth(customerId);
         }
-        return new AssistantAskResponse(NO_MATCH_ANSWER, List.of(), false);
+        return AssistantAskResponse.deterministic(NO_MATCH_ANSWER, List.of());
     }
 
     private AssistantAskResponse spendingThisMonth(Long customerId) {
@@ -59,8 +59,8 @@ public class RuleBasedAssistant {
         var from = monthStart.atStartOfDay(ZoneOffset.UTC).toInstant();
         var to = monthStart.plusMonths(1).atStartOfDay(ZoneOffset.UTC).toInstant();
         BigDecimal total = ledgerEntryRepository.sumAllSpendingForCustomer(customerId, from, to);
-        return new AssistantAskResponse(
-                "You spent ₹" + total.toPlainString() + " so far this month.", List.of(), false);
+        return AssistantAskResponse.deterministic(
+                "You spent ₹" + total.toPlainString() + " so far this month.", List.of());
     }
 
     private AssistantAskResponse largestPayments(Long customerId) {
@@ -68,7 +68,7 @@ public class RuleBasedAssistant {
         List<TransactionHistoryRow> rows = ledgerEntryRepository.largestSpendingForCustomer(
                 customerId, since, PageRequest.of(0, LARGEST_PAYMENTS_LIMIT));
         if (rows.isEmpty()) {
-            return new AssistantAskResponse("You have no outgoing payments in the last " + LOOKBACK_DAYS + " days.", List.of(), false);
+            return AssistantAskResponse.deterministic("You have no outgoing payments in the last " + LOOKBACK_DAYS + " days.", List.of());
         }
         StringBuilder sb = new StringBuilder("Your largest payments in the last " + LOOKBACK_DAYS + " days:");
         List<String> refs = rows.stream().map(TransactionHistoryRow::reference).toList();
@@ -77,13 +77,13 @@ public class RuleBasedAssistant {
                     row.description() == null || row.description().isBlank() ? "no description" : row.description(),
                     row.reference()));
         }
-        return new AssistantAskResponse(sb.toString(), refs, false);
+        return AssistantAskResponse.deterministic(sb.toString(), refs);
     }
 
     private AssistantAskResponse balances(Long customerId) {
         List<Account> accounts = accountRepository.findByOwnerCustomerIdOrderByCreatedAtAsc(customerId);
         if (accounts.isEmpty()) {
-            return new AssistantAskResponse("You don't have any accounts yet.", List.of(), false);
+            return AssistantAskResponse.deterministic("You don't have any accounts yet.", List.of());
         }
         StringBuilder sb = new StringBuilder("Your account balances:");
         for (Account account : accounts) {
@@ -91,7 +91,7 @@ public class RuleBasedAssistant {
                     ? account.getNickname() : account.getAccountType().name();
             sb.append(String.format(" %s: ₹%s;", label, account.getBalance().toPlainString()));
         }
-        return new AssistantAskResponse(sb.toString(), List.of(), false);
+        return AssistantAskResponse.deterministic(sb.toString(), List.of());
     }
 
     private static boolean containsAny(String haystack, String... needles) {

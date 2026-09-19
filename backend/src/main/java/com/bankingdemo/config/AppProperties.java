@@ -98,6 +98,7 @@ public class AppProperties {
         private int recoveryPerHour = 10;
         private int recipientLookupPerMinute = 30;
         private int fundingPerMinute = 10;
+        private int aiPerMinute = 10;
 
         public int getLoginPerMinute() {
             return loginPerMinute;
@@ -137,6 +138,14 @@ public class AppProperties {
 
         public void setFundingPerMinute(int fundingPerMinute) {
             this.fundingPerMinute = fundingPerMinute;
+        }
+
+        public int getAiPerMinute() {
+            return aiPerMinute;
+        }
+
+        public void setAiPerMinute(int aiPerMinute) {
+            this.aiPerMinute = aiPerMinute;
         }
     }
 }

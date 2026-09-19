@@ -28,10 +28,10 @@ public class FakeAiChatClient implements AiChatClient {
     @Override
     public String chat(String systemPrompt, String userContent, boolean jsonMode) {
         if (!available) {
-            throw new AiUnavailableException("simulated outage");
+            throw new AiUnavailableException(AiUnavailableException.Reason.PROVIDER_ERROR, "simulated outage");
         }
         if (scriptedResponse == null) {
-            throw new AiUnavailableException("no scripted response configured for this test");
+            throw new AiUnavailableException(AiUnavailableException.Reason.BAD_RESPONSE, "no scripted response configured for this test");
         }
         return scriptedResponse;
     }

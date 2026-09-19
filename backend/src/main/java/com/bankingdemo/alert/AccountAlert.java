@@ -40,6 +40,10 @@ public class AccountAlert {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    /** Idempotency key for rules that must never raise the same alert twice; null for legacy rules. */
+    @Column(name = "dedupe_key", length = 160)
+    private String dedupeKey;
+
     @Column(name = "acknowledged_at")
     private Instant acknowledgedAt;
 

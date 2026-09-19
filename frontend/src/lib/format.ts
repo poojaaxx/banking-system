@@ -26,3 +26,17 @@ export function formatDateTime(iso: string): string {
 export function formatDate(iso: string): string {
   return dateFormatter.format(new Date(iso))
 }
+
+const monthFormatter = new Intl.DateTimeFormat('en-IN', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+const isoDateFormatter = new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'UTC' })
+
+/** "2027-02" -> "Feb 2027". Calendar months from the backend are UTC and must not shift with the viewer's time zone. */
+export function formatMonth(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-').map(Number)
+  return monthFormatter.format(new Date(Date.UTC(year, month - 1, 1)))
+}
+
+/** "2026-09-19" -> "19 Sept 2026" (a calendar date, not an instant, so no time-zone shifting). */
+export function formatIsoDate(isoDate: string): string {
+  return isoDateFormatter.format(new Date(isoDate.slice(0, 10) + 'T00:00:00Z'))
+}

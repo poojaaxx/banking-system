@@ -8,11 +8,13 @@ import { RecoveryLoginPage } from './pages/auth/RecoveryLoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { AccountDetailPage } from './pages/customer/AccountDetailPage'
 import { AccountsPage } from './pages/customer/AccountsPage'
+import { AboutPage } from './pages/AboutPage'
 import { AiAssistantPage } from './pages/customer/AiAssistantPage'
 import { BeneficiariesPage } from './pages/customer/BeneficiariesPage'
 import { BillsPage } from './pages/customer/BillsPage'
 import { BudgetsPage } from './pages/customer/BudgetsPage'
 import { DashboardPage } from './pages/customer/DashboardPage'
+import { InsightsPage } from './pages/customer/InsightsPage'
 import { MoneyRequestsPage } from './pages/customer/MoneyRequestsPage'
 import { NotificationsPage } from './pages/customer/NotificationsPage'
 import { SavingsGoalsPage } from './pages/customer/SavingsGoalsPage'
@@ -40,6 +42,7 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/recovery-login" element={<RecoveryLoginPage />} />
       <Route path="/admin/login" element={<AdminLoginPage />} />
+      <Route path="/about" element={<AboutPage />} />
 
       <Route
         element={
@@ -50,6 +53,7 @@ export default function App() {
       >
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/assistant" element={<AiAssistantPage />} />
+        <Route path="/insights" element={<InsightsPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/accounts/:id" element={<AccountDetailPage />} />
         <Route path="/transfer" element={<TransferPage />} />

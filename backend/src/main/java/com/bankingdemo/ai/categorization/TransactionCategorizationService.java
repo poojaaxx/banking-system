@@ -87,7 +87,9 @@ public class TransactionCategorizationService {
         SpendingCategory category = spendingCategoryRepository.findByCode(code)
                 .or(() -> spendingCategoryRepository.findByCode("OTHER"))
                 .orElseThrow(() -> new IllegalStateException("OTHER category missing"));
-        return new CategorySuggestion(category.getId(), category.getCode(), category.getName(), source, confidence);
+        // Confidence is intentionally not exposed: the rule score is a constant and a model's self-reported
+        // confidence is uncalibrated, so neither may be presented to customers as a probability.
+        return new CategorySuggestion(category.getId(), category.getCode(), category.getName(), source, null);
     }
 
     private record OwnedEntry(LedgerEntry entry, FinancialTransaction transaction) {

@@ -4,6 +4,8 @@ import com.bankingdemo.ledger.FinancialTransaction;
 import com.bankingdemo.ledger.FinancialTransactionRepository;
 import com.bankingdemo.ledger.TransactionType;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,9 +25,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequiredArgsConstructor
 public class AlertEvaluationService {
 
+    private static final Logger log = LoggerFactory.getLogger(AlertEvaluationService.class);
+
     private final AlertRuleRepository alertRuleRepository;
     private final AccountAlertRepository accountAlertRepository;
     private final FinancialTransactionRepository financialTransactionRepository;
+    private final UnusualActivityDetector unusualActivityDetector;
 
     private record FailedLoginWindow(AtomicInteger count, long windowStartMillis) {
     }
@@ -59,6 +64,14 @@ public class AlertEvaluationService {
                                             + rule.getWindowMinutes() + " minutes");
                         }
                     });
+        }
+
+        // Advisory statistics must never be able to fail a money movement: any unexpected error is
+        // logged (class name only) and swallowed so the transfer still commits.
+        try {
+            unusualActivityDetector.evaluate(transaction);
+        } catch (RuntimeException e) {
+            log.warn("Unusual-activity check skipped due to an internal error ({})", e.getClass().getSimpleName());
         }
     }
 
