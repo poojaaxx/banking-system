@@ -41,16 +41,23 @@ test('concurrent duplicate requests with the same idempotency key never move mon
             'X-XSRF-TOKEN': readCookie('XSRF-TOKEN'),
           },
           body,
-        }).then((r) => r.status)
+        }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => null) }))
       return Promise.all([send(), send(), send()])
     },
     { sourceAccountId, destinationAccountNumber: recipient.accountNumber },
   )
 
-  // Exactly one request should succeed (200); the rest are safely rejected
-  // (409 conflict) by the database unique constraint, never silently retried
-  // into a second transfer.
-  expect(results.filter((s) => s === 200).length).toBe(1)
+  // Which duplicates get 409 (still in flight) and which get a 200 replay of the stored
+  // result (already committed) depends on timing, so the count of 200s is not an invariant.
+  // The invariants are: every response is 200 or 409, at least one succeeds, all successes
+  // are the SAME transfer, and (below) the balances show money moved exactly once.
+  const statuses = results.map((r) => r.status)
+  expect(statuses.every((s) => s === 200 || s === 409)).toBe(true)
+  const successes = results.filter((r) => r.status === 200)
+  expect(successes.length).toBeGreaterThanOrEqual(1)
+  const references = new Set(successes.map((r) => r.body?.reference ?? r.body?.operationReference))
+  expect(references.size).toBe(1)
+  expect([...references][0]).toBeTruthy()
 
   await senderPage.goto(`/accounts/${sourceAccountId}`)
   await expect(senderPage.getByText('₹9,500.00').first()).toBeVisible()
