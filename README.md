@@ -12,6 +12,22 @@ freeze/unfreeze, alerts, support responses, audit log). Full architecture
 and rationale: [CLAUDE.md](CLAUDE.md). Honest, continuously-updated record
 of what's actually done vs. pending: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
+## Live instance
+
+**https://securebank-app-k1a4.onrender.com** — Render free web service + Aiven
+free MySQL, deployed from commit `2f3294c` (`feature/initial-build`).
+
+- It runs on free tiers: after ~15 minutes idle it sleeps and the first request
+  takes about a minute; every sleep or restart signs users out (banking data is
+  kept in MySQL). Registration takes a few seconds on the 0.1-CPU instance.
+- Verified on 2026-09-19 with fictional data: HTTPS, registration/login/logout,
+  recovery codes, transfers with database-backed duplicate protection,
+  ownership and admin restrictions, freeze/unfreeze, live SSE updates in two
+  browsers, persistence across restarts, database TLS with certificate and
+  hostname verification, and real Groq responses with a labelled fallback.
+  Evidence and the few things not re-run publicly: [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) §6–6b.
+- Use fictional details only. Please don't load-test it; it is someone's free tier.
+
 ## Quick start
 
 ```powershell
@@ -103,11 +119,30 @@ npx playwright test
 - Backend: 110/110 (`.\mvnw.cmd clean test`, real MySQL 8 via Testcontainers).
 - Frontend: 38/38 unit tests; `npm run build` is clean.
 - E2E: 23/23 Playwright tests against the packaged Docker image with real MySQL.
-- CI (GitHub Actions): all three jobs passed on commit `1ee87ba`
+- CI (GitHub Actions): all three jobs passed on the deployed commit `2f3294c`
+  and on the earlier `1ee87ba`
   ([run 35419718879](https://github.com/poojaaxx/banking-system/actions/runs/35419718879));
   details in `IMPLEMENTATION_STATUS.md` §8.
-- Live Groq verification: **not performed** (no API key was available); see
-  [docs/ai-features.md](docs/ai-features.md).
+- Public deployment: 9/9 of the browser specs above plus a 40-check API run
+  passed against the live URL (see below).
+- Live Groq: verified locally and on the public app (genuine assistant and
+  categorization responses, unsupported model figures rejected, labelled
+  fallback when the provider is unavailable); see
+  [docs/ai-features.md](docs/ai-features.md). A real Groq 429/5xx has not been
+  observed.
+
+To re-run browser specs against a deployed instance (fictional data, low
+volume; the free instance needs the longer timeouts in the public config):
+
+```powershell
+cd e2e
+$env:PLAYWRIGHT_BASE_URL = "https://<your-service>.onrender.com"; $env:E2E_TARGET = "packaged"
+npx playwright test -c playwright.public.config.ts customer-transfer duplicate-submission ownership-denial frontend-routes
+```
+
+To check a Groq key without printing it: `node scripts/ai-smoke.mjs --require`
+(reads `GROQ_API_KEY` from the environment; exit 0 = pass, 1 = provider
+failure, 2 = no key).
 
 ## Repository layout
 
@@ -117,20 +152,20 @@ frontend/   React 19 + TypeScript + Vite SPA
 e2e/        Playwright end-to-end tests against the packaged app
 scripts/    Docker entrypoint, backup/restore helper scripts
 docs/       Architecture, deployment, admin-bootstrap, backup/restore, ai-features, insights
-render.yaml Optional Render Blueprint (free plan; unexecuted, needs your account)
+render.yaml Optional Render Blueprint (free plan; the live service was created by hand with the same settings)
 .github/workflows/  CI (backend tests, frontend build/tests, packaged E2E)
 ```
 
 ## Known gaps and unverified behavior
 
-- **Deployment has not been performed.** `docs/deployment.md` documents a
-  plan re-checked against Render's and Aiven's own free-tier pages on
-  2026-09-19, and exactly which sign-up steps only you can do. No public URL
-  exists.
-- **Real Groq calls have not been verified** (no key was available). Everything
-  else about AI is verified against a simulated provider and with the model
-  unavailable. The insights/forecast accuracy figures are from **synthetic**
-  fixtures, not real users.
+- **Free-tier hosting is a demo, not production.** Render sleeps when idle and
+  Aiven may power off an idle free database; neither is covered by an SLA.
+- Not re-run on the public instance: unusual-activity alert delivery over SSE
+  and Insights with populated history (both covered locally and in CI), and a
+  real Groq 429/5xx (covered only against a simulated provider).
+- The insights/forecast accuracy figures are from **synthetic** fixtures, not
+  real users; the model never has authority over money, and its output is
+  checked against backend-computed figures.
 - Admin has no self-service password reset; see
   `docs/admin-bootstrap.md` for the intentional manual procedure.
 - In-memory sessions mean any restart (including a Render free-tier
@@ -150,7 +185,12 @@ already-executed verification run (not just the procedure).
 
 ## Deployment
 
-See [docs/deployment.md](docs/deployment.md).
+Render (Docker, Free) + Aiven MySQL (Free), database TLS verified with
+`sslMode=VERIFY_IDENTITY`. Step-by-step settings, the exact environment
+variables, the pitfalls hit on the real services and how the deployed instance
+was verified: [docs/deployment.md](docs/deployment.md). Never commit `.env`,
+`.env.deploy` or any `.pem`; all are Git-ignored and excluded from the Docker
+build context.
 
 ## Architecture
 
