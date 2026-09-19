@@ -15,10 +15,10 @@ Every item says **where** it was verified, because these are different claims:
 
 | Claim | local | CI | real Groq | public |
 | --- | --- | --- | --- | --- |
-| Core banking (accounts, ledger, idempotency, concurrency, admin) | [x] | see §8 | n/a | [ ] |
-| Unusual-activity checks, Insights, forecasts | [x] | see §8 | n/a | [ ] |
-| Assistant / categorization **with the model unavailable** (labelled fallback) | [x] | see §8 | n/a | [ ] |
-| Assistant / categorization **against a simulated provider** (429, 401, 500, timeout, quota) | [x] | see §8 | n/a | [ ] |
+| Core banking (accounts, ledger, idempotency, concurrency, admin) | [x] | [x] | n/a | [ ] |
+| Unusual-activity checks, Insights, forecasts | [x] | [x] | n/a | [ ] |
+| Assistant / categorization **with the model unavailable** (labelled fallback) | [x] | [x] | n/a | [ ] |
+| Assistant / categorization **against a simulated provider** (429, 401, 500, timeout, quota) | [x] | [x] | n/a | [ ] |
 | Assistant / categorization **against the real Groq API** | n/a | n/a | **[ ] NOT DONE — no `GROQ_API_KEY` available** | [ ] |
 | Deployment on Render + Aiven | n/a | n/a | n/a | **[!] NOT DEPLOYED — needs your accounts** |
 
@@ -61,7 +61,8 @@ Every item says **where** it was verified, because these are different claims:
 - [x] local — `scripts/backup.sh` / `restore.sh` were executed end to end at schema `V8` (see `docs/backup-restore.md`). Not re-run at `V10`; the procedure is unchanged, but that specific run is not repeated here.
 
 ## 8. CI
-- CI is defined in `.github/workflows/ci.yml` and runs on pushes to `feature/**` and `main`. The outcome for the release commit is recorded in the follow-up commit after it has been observed; do not treat this section as a CI result until it names a commit and a run.
+- [x] CI — GitHub Actions run [`35419718879`](https://github.com/poojaaxx/banking-system/actions/runs/35419718879) on the release commit **`1ee87baf7ef2c2a11498dcf1755feb5e894b657c`** (`feature/initial-build`, push event) finished **success**, observed on 2026-09-19 through GitHub's public API. All three jobs passed: backend tests on real MySQL via Testcontainers, frontend unit tests + build, and Playwright against the packaged Docker image. The repository is public, so Actions minutes are free.
+- This documentation-only follow-up commit is a different commit; its own run is not claimed here.
 
 ## What went wrong along the way (kept for honesty)
 

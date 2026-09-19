@@ -103,8 +103,9 @@ npx playwright test
 - Backend: 110/110 (`.\mvnw.cmd clean test`, real MySQL 8 via Testcontainers).
 - Frontend: 38/38 unit tests; `npm run build` is clean.
 - E2E: 23/23 Playwright tests against the packaged Docker image with real MySQL.
-- CI (GitHub Actions) results are recorded in `IMPLEMENTATION_STATUS.md` §8 only
-  once observed on a named commit.
+- CI (GitHub Actions): all three jobs passed on commit `1ee87ba`
+  ([run 35419718879](https://github.com/poojaaxx/banking-system/actions/runs/35419718879));
+  details in `IMPLEMENTATION_STATUS.md` §8.
 - Live Groq verification: **not performed** (no API key was available); see
   [docs/ai-features.md](docs/ai-features.md).
 
