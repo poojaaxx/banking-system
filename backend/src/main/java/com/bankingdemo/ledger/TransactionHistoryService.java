@@ -2,6 +2,7 @@ package com.bankingdemo.ledger;
 
 import com.bankingdemo.account.Account;
 import com.bankingdemo.account.AccountRepository;
+import com.bankingdemo.ai.categorization.RuleBasedCategorizer;
 import com.bankingdemo.common.ApiException;
 import com.bankingdemo.customer.Customer;
 import com.bankingdemo.customer.CustomerRepository;
@@ -23,6 +24,8 @@ public class TransactionHistoryService {
     private final AccountRepository accountRepository;
     private final CustomerRepository customerRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
+    private final SpendingCategoryRepository spendingCategoryRepository;
+    private final RuleBasedCategorizer ruleBasedCategorizer;
 
     @Transactional(readOnly = true)
     public Page<TransactionHistoryResponse> search(Long customerId, Long accountId, TransactionType type,
@@ -61,9 +64,27 @@ public class TransactionHistoryService {
         Long counterpartyAccountId = row.direction() == LedgerDirection.DEBIT
                 ? row.destinationAccountId() : row.sourceAccountId();
         CounterpartyInfo counterparty = resolveCounterparty(counterpartyAccountId);
+        SuggestionInfo suggestion = row.categoryId() == null && row.direction() == LedgerDirection.DEBIT
+                ? resolveRuleBasedSuggestion(row.description())
+                : new SuggestionInfo(null, null);
         return new TransactionHistoryResponse(row.ledgerEntryId(), row.reference(), row.type(), row.direction(),
                 row.amount(), row.balanceAfter(), row.description(), row.categoryId(), row.createdAt(),
-                counterparty.accountNumber(), counterparty.displayName());
+                counterparty.accountNumber(), counterparty.displayName(), suggestion.code(), suggestion.name());
+    }
+
+    /**
+     * Cheap, always-available default shown inline for uncategorized spending
+     * rows; the frontend can additionally ask for an on-demand AI suggestion
+     * (see CategorizationController) but never fetches one automatically per row.
+     */
+    private SuggestionInfo resolveRuleBasedSuggestion(String description) {
+        return ruleBasedCategorizer.suggestCode(description)
+                .flatMap(match -> spendingCategoryRepository.findByCode(match.categoryCode()))
+                .map(category -> new SuggestionInfo(category.getCode(), category.getName()))
+                .orElse(new SuggestionInfo(null, null));
+    }
+
+    private record SuggestionInfo(String code, String name) {
     }
 
     private record CounterpartyInfo(String accountNumber, String displayName) {
@@ -75,7 +96,7 @@ public class TransactionHistoryService {
             return new CounterpartyInfo(null, null);
         }
         if (account.isSystem()) {
-            return new CounterpartyInfo(null, "Demo Bank");
+            return new CounterpartyInfo(null, "SecureBank");
         }
         String name = customerRepository.findById(account.getOwnerCustomerId())
                 .map(Customer::getFullName)

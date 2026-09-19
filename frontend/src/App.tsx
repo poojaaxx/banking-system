@@ -8,6 +8,7 @@ import { RecoveryLoginPage } from './pages/auth/RecoveryLoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { AccountDetailPage } from './pages/customer/AccountDetailPage'
 import { AccountsPage } from './pages/customer/AccountsPage'
+import { AiAssistantPage } from './pages/customer/AiAssistantPage'
 import { BeneficiariesPage } from './pages/customer/BeneficiariesPage'
 import { BillsPage } from './pages/customer/BillsPage'
 import { BudgetsPage } from './pages/customer/BudgetsPage'
@@ -48,6 +49,7 @@ export default function App() {
         }
       >
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/assistant" element={<AiAssistantPage />} />
         <Route path="/accounts" element={<AccountsPage />} />
         <Route path="/accounts/:id" element={<AccountDetailPage />} />
         <Route path="/transfer" element={<TransferPage />} />

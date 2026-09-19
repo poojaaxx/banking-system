@@ -67,6 +67,13 @@ app:
     register-per-hour: ${RATE_LIMIT_REGISTER_PER_HOUR:20}
     recovery-per-hour: ${RATE_LIMIT_RECOVERY_PER_HOUR:10}
   trust-proxy-headers: ${TRUST_PROXY_HEADERS:false}
+  ai:
+    # AI features are entirely optional -- leave blank to run without them.
+    # Free Groq API key: https://console.groq.com (no credit card required).
+    groq-api-key: ${GROQ_API_KEY:}
+    groq-model: ${GROQ_MODEL:llama-3.3-70b-versatile}
+    timeout-ms: ${AI_TIMEOUT_MS:8000}
+    failure-cooldown-seconds: ${AI_FAILURE_COOLDOWN_SECONDS:120}
 
 ---
 # Local dev without Docker: `mvnw spring-boot:run` against a MySQL you run yourself

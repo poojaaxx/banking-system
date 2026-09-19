@@ -106,4 +106,44 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
             @Param("customerId") Long customerId,
             @Param("monthStart") Instant monthStart,
             @Param("monthEnd") Instant monthEnd);
+
+    @Query("""
+            select coalesce(sum(e.amount), 0)
+            from LedgerEntry e, FinancialTransaction f, Account own, Account dst
+            where e.financialTransactionId = f.id
+              and e.accountId = own.id
+              and f.destinationAccountId = dst.id
+              and own.ownerCustomerId = :customerId
+              and e.direction = 'DEBIT'
+              and e.createdAt >= :fromDate
+              and e.createdAt < :toDate
+              and (f.type <> 'TRANSFER' or own.ownerCustomerId <> dst.ownerCustomerId)
+            """)
+    BigDecimal sumAllSpendingForCustomer(
+            @Param("customerId") Long customerId,
+            @Param("fromDate") Instant fromDate,
+            @Param("toDate") Instant toDate);
+
+    /**
+     * Used by the AI assistant's always-on, non-AI "largest payments" answer
+     * and as grounding data for the AI-enriched answer -- see AssistantService.
+     */
+    @Query("""
+            select new com.bankingdemo.ledger.TransactionHistoryRow(
+                e.id, f.id, f.reference, f.type, e.direction, e.amount, e.balanceAfter,
+                f.description, e.categoryId, e.createdAt, f.sourceAccountId, f.destinationAccountId)
+            from LedgerEntry e, FinancialTransaction f, Account own, Account dst
+            where e.financialTransactionId = f.id
+              and e.accountId = own.id
+              and f.destinationAccountId = dst.id
+              and own.ownerCustomerId = :customerId
+              and e.direction = 'DEBIT'
+              and e.createdAt >= :since
+              and (f.type <> 'TRANSFER' or own.ownerCustomerId <> dst.ownerCustomerId)
+            order by e.amount desc, e.createdAt desc
+            """)
+    List<TransactionHistoryRow> largestSpendingForCustomer(
+            @Param("customerId") Long customerId,
+            @Param("since") Instant since,
+            Pageable pageable);
 }

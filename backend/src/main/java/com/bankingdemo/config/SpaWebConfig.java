@@ -15,17 +15,22 @@ import java.io.IOException;
  * CSS, images -- anything with a file extension) are served as-is, with
  * Spring's normal content-type detection, and 404 cleanly if missing. Any
  * other GET (no file extension -- a client-side route like /accounts/42)
- * falls back to index.html so React Router can take over. This mapping never
- * intercepts /api/** or /actuator/**, since Spring MVC always tries
- * controller (@RequestMapping) and actuator endpoint mappings before falling
- * back to a resource handler mapped on "/**".
+ * falls back to index.html so React Router can take over.
+ *
+ * The mapped patterns use a regex path variable to exclude "api" and
+ * "actuator" as a first path segment, so this handler's mapping never even
+ * matches those prefixes -- for any other HTTP method (POST/PUT/PATCH/DELETE)
+ * on an unmapped /api/** path, ResourceHttpRequestHandler would otherwise
+ * "find" index.html and then reject the method with a 500 rather than a 404
+ * (it only checks GET/HEAD support after resolving a resource). A plain "/**"
+ * pattern was tried first and hit exactly this bug during manual testing.
  */
 @Configuration
 public class SpaWebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/**")
+        registry.addResourceHandler("/", "/{spring:^(?!api|actuator).*$}", "/{spring:^(?!api|actuator).*$}/**")
                 .addResourceLocations("classpath:/static/")
                 .resourceChain(true)
                 .addResolver(new PathResourceResolver() {

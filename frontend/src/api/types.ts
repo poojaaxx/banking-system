@@ -69,6 +69,28 @@ export interface TransactionHistoryRow {
   createdAt: string
   counterpartyAccountNumber: string | null
   counterpartyDisplayName: string | null
+  suggestedCategoryCode: string | null
+  suggestedCategoryName: string | null
+}
+
+export type CategorySuggestionSource = 'RULE_BASED' | 'AI'
+
+export interface CategorySuggestion {
+  categoryId: number
+  categoryCode: string
+  categoryName: string
+  source: CategorySuggestionSource
+  confidence: number | null
+}
+
+export interface AssistantAskResponse {
+  answer: string
+  relatedTransactionReferences: string[]
+  aiGenerated: boolean
+}
+
+export interface AiStatus {
+  aiAvailable: boolean
 }
 
 export interface Page<T> {

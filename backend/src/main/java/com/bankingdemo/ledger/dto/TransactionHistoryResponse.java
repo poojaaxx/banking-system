@@ -17,6 +17,8 @@ public record TransactionHistoryResponse(
         Long categoryId,
         Instant createdAt,
         String counterpartyAccountNumber,
-        String counterpartyDisplayName
+        String counterpartyDisplayName,
+        String suggestedCategoryCode,
+        String suggestedCategoryName
 ) {
 }

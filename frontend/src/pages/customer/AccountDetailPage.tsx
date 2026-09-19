@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAccount, useCloseAccount } from '../../api/useAccounts'
 import { useDeposit, useWithdraw } from '../../api/useTransfers'
 import { statementCsvUrl, useTransactionHistory, type TransactionFilters } from '../../api/useTransactions'
+import { CategorySuggestionCell } from '../../components/CategorySuggestionCell'
 import { DepositWithdrawForm } from '../../components/DepositWithdrawForm'
 import { ErrorBanner, EmptyState, LoadingState } from '../../components/States'
 import { StatusBadge } from '../../components/StatusBadge'
@@ -118,6 +119,7 @@ export function AccountDetailPage() {
                     <th>Type</th>
                     <th>Counterparty</th>
                     <th>Description</th>
+                    <th>Category</th>
                     <th>Amount</th>
                     <th>Balance after</th>
                   </tr>
@@ -130,6 +132,7 @@ export function AccountDetailPage() {
                       <td>{tx.type.replace('_', ' ')}</td>
                       <td>{tx.counterpartyDisplayName ?? tx.counterpartyAccountNumber ?? '—'}</td>
                       <td>{tx.description ?? '—'}</td>
+                      <td className="no-print">{account && <CategorySuggestionCell tx={tx} accountId={account.id} />}</td>
                       <td className={tx.direction === 'DEBIT' ? 'text-danger' : 'text-success'}>
                         {tx.direction === 'DEBIT' ? '-' : '+'}
                         {formatInr(tx.amount)}

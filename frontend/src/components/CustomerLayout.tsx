@@ -6,6 +6,7 @@ import { useEventStream } from '../api/useEventStream'
 
 const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard' },
+  { to: '/assistant', label: 'Assistant' },
   { to: '/accounts', label: 'Accounts' },
   { to: '/transfer', label: 'Transfer' },
   { to: '/money-requests', label: 'Money requests' },
